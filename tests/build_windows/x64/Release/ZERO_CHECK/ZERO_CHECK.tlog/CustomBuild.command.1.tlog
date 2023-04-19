@@ -1,0 +1,10 @@
+^C:\USERS\TOMTO\DESKTOP\PAVAL\PAPERS\CONTROL23\TESTS\BUILD_WINDOWS\CMAKEFILES\D5E7E650AB3C1EB69FC8E7FF3FA18594\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/tomto/Desktop/paval/papers/control23/tests -BC:/Users/tomto/Desktop/paval/papers/control23/tests/build_windows --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/tomto/Desktop/paval/papers/control23/tests/build_windows/control23_tests.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
