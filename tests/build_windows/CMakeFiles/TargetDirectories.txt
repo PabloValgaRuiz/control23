@@ -1,3 +1,0 @@
-C:/Users/tomto/Desktop/paval/papers/control23/tests/build_windows/CMakeFiles/main.dir
-C:/Users/tomto/Desktop/paval/papers/control23/tests/build_windows/CMakeFiles/ALL_BUILD.dir
-C:/Users/tomto/Desktop/paval/papers/control23/tests/build_windows/CMakeFiles/ZERO_CHECK.dir

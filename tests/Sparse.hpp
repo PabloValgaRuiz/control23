@@ -6,7 +6,7 @@ class Sparse{
 public:
     int N = 0;
     long long Links = 0;
-    int Total{};
+    int Total{0};
 
     std::vector<int> vecinos;
     std::vector<int> vecinosT;

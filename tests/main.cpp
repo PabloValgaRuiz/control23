@@ -12,6 +12,7 @@
 #include "Log.hpp"
 #include "benchmark.hpp"
 
+const std::string path = "../";
 struct Link{
     //Number of population that the link contains
     int Pop;
@@ -34,7 +35,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 20000 //50000
+#define MUESTRA_MAX 10000 //50000
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
@@ -52,7 +53,7 @@ std::string name = "detroit";
 static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
 static const int nPasos = 300;//300
-static const int nIterations = 24*1;
+static const int nIterations = 1;
 
 std::mutex resultsMutex;
 
@@ -65,11 +66,13 @@ int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
 
-    std::string output = name;// + "_beta_8,0.txt";
+    std::string output = path + "out/" + name + "_beta_3,0.txt";
 
-    MobMatrix T{"cities3/" + name + "/mobnetwork.txt", "cities3/" + name + "/Poparea.txt"};
+    MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
     auto eigenVector = readEigen(T, name);
+
+    Log::debug("EigenVector read.");
 
     size_t sizeLinks = 33; //33
 
@@ -93,13 +96,14 @@ int main(int argc, char* argv[]){
     }
     futures.clear();
 
-    Log::debug("Links chosen.");
+    Log::info("Links chosen.");
 
     //_______________________________COUNTING PEOPLE___________________________________
 
     countPopulationLinks(T, vectorChosenLinks, heatMap);
+
+    Log::info("Population counted.");
     //__________________________________ITERATING_____________________________________
-        
         
     for(int l = 0; l < nIterations; l++){
         futures.push_back(std::move(pool.enqueue([&, l]{
@@ -153,9 +157,12 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
     for(int t = 0; t < nPasos; t++){
         montecarlo.iteracion(T);
 
-        int statesIndex = 0;
+        
         
         for(int l = 0; l < chosenLinks.size(); l++){
+
+            int statesIndex = 0;
+
             auto chosenLink = chosenLinks[l]; //The last group of links (all of them)
             std::vector<int> MCLabels(chosenLink.Total);
 
@@ -163,6 +170,7 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
                 for(int j = 0; j < chosenLink.vecinos[i]; j++){
                     //Find the first person in the link in the Monte Carlo agent array
                     int MCIndex = chosenLink[i][j].cumulativePop;
+                    std::cout << statesIndex << ", " << chosenLink[i][j].Pop << ", " << chosenLink.Total << std::endl;
 
                     //Copy the adress of every person included in the reserve
                     for(int k = 0; k < chosenLink[i][j].Pop; k++)
@@ -274,7 +282,7 @@ mainPROFILE_FUNCTION();
 
     Sparse<double> eigenVector = T;
 
-    std::ifstream fileEigen{"eigenvectors3/" + name + "_10.txt"};
+    std::ifstream fileEigen{path + "eigenvectors3/" + name + "_10.txt"};
 
     Log::debug("Eigenvector file opened.");
 
@@ -344,7 +352,7 @@ mainPROFILE_FUNCTION();
         chosenLinksPop.vecinos[I]++;
         chosenLinksPop.Mvecinos[I].push_back(T.Mvecinos[I][J]);
         chosenLinksPop[I].push_back(Link{static_cast<int>(T.Mpesos[I][J]), cumulativePop});
-        chosenLinksPop.Total += T.Mpesos[I][J]; //Total chosen population
+        chosenLinksPop.Total += static_cast<int>(T.Mpesos[I][J]); //Total chosen population
     }
 
     Log::debug("Links chosen");
