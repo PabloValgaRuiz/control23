@@ -35,7 +35,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 10000 //50000
+#define MUESTRA_MAX 1000 //50000
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
@@ -45,10 +45,11 @@ const static std::unordered_map<std::string, double> cityBeta{
     {"detroit", 0.0106555},
     {"ma", 0.153499},
     {"los angeles", 0.0918512},
-    {"miami", 0.168365}
+    {"miami", 0.168365},
+    {"bogota", 1.0 / 1.78102}
 };
 
-std::string name = "detroit";
+std::string name = "ma";
 
 static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
@@ -170,7 +171,6 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
                 for(int j = 0; j < chosenLink.vecinos[i]; j++){
                     //Find the first person in the link in the Monte Carlo agent array
                     int MCIndex = chosenLink[i][j].cumulativePop;
-                    std::cout << statesIndex << ", " << chosenLink[i][j].Pop << ", " << chosenLink.Total << std::endl;
 
                     //Copy the adress of every person included in the reserve
                     for(int k = 0; k < chosenLink[i][j].Pop; k++)

@@ -15,7 +15,7 @@ private:
 public:
     int N = 0, Nc = 0;
     int Pob = 0;
-    double Ratio = 0.4;
+    double Ratio = 1;
     long long Links = 0;
     std::vector<int> population;
     std::vector<double> area;
