@@ -47,12 +47,12 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 std::string path = "../";
-std::string name = "detroit";
+std::string name = "bogota";
 
 //static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
 static const int nPasos = 300;//300
-static const int nIterations = 1*1;
+static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
 
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]){
         }
     }
     file.close();
-
+    
 }
     Instrumentor::Get().EndSession();
     return 0;

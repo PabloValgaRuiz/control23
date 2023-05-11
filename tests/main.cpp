@@ -49,12 +49,12 @@ const static std::unordered_map<std::string, double> cityBeta{
     {"bogota", 1.0 / 1.78102}
 };
 
-std::string name = "ma";
+std::string name = "bogota";
 
 static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
 static const int nPasos = 300;//300
-static const int nIterations = 1;
+static const int nIterations = 6;
 
 std::mutex resultsMutex;
 
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]){
 	for(int i = 0; i < heatMap.size(); i++)//iteracion sobre links
 		for(int j = 0; j < heatMap[i].size(); j++)//iteracion sobre tests
                 //Cantidad de links: Copia de mas arriba, al elegir los links
-			f << heatMap[i][j].population_link << "\t" << ((j+1) * 10000) * nPasos / heatMap[i].size() << "\t" << heatMap[i][j].mean/nIterations << "\t" <<
+			f << heatMap[i][j].population_link << "\t" << ((j+1) * MUESTRA_MAX) * nPasos / heatMap[i].size() << "\t" << heatMap[i][j].mean/nIterations << "\t" <<
             2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations * nPasos)))/((nIterations * nPasos) * ((nIterations * nPasos)-1))) << "\n";
 	f.close();
 
@@ -182,8 +182,8 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
             }
 
             
-            int PobInf = contarInfectadosChosen(T, chosenLinks[l], montecarlo, MUESTRA_MAX, mt);
-            
+            // int PobInf = contarInfectadosChosen(T, chosenLinks[l], montecarlo, MUESTRA_MAX, mt);
+        
             MCLabels = fisherYatesShuffle(MUESTRA_MAX, MCLabels, mt);
 
             //Take pieces from the sample
@@ -191,9 +191,9 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
 
                 int MUESTRA = ((j+1) * MUESTRA_MAX) / heatMap[l].size();
 
-                PobInf = 0;
-                for(auto label : MCLabels){
-                    if(montecarlo.getEst()[label] == E || montecarlo.getEst()[label] == I){
+                int PobInf = 0;
+                for(int i = 0; i < MUESTRA; i++){
+                    if(montecarlo.getEst()[MCLabels[i]] == E || montecarlo.getEst()[MCLabels[i]] == I){
                         PobInf++;
                         //montecarlo.getEst()[label] = R;
                     }
