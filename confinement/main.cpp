@@ -32,13 +32,13 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 1000 //50000
+#define MUESTRA_MAX 50000 //50000
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
     {"ny", 0.0466719},
     {"dallas", 0.025512},
-    {"dc", 0.839636}, 
+    {"dc", 0.839636},
     {"detroit", 0.0106555},
     {"ma", 0.153499},
     {"los angeles", 0.0918512},
@@ -83,7 +83,8 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            size_t NlcTemp = T.Links * (i+1) / (3 * sizeLinks); //Care to not choose 0
+            constexpr int offset = 0;
+            size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
@@ -108,6 +109,7 @@ int main(int argc, char* argv[]){
 
             })));
         }
+        
         for(auto& future : futures)
         future.wait();
         for(int l = 0; l < vectorChosenLinks.size(); l++){

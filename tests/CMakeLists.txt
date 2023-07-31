@@ -17,6 +17,4 @@ add_executable(main
 
 include_directories(main PUBLIC
     ./
-    model/
-    vendor/
     )
