@@ -35,7 +35,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 10000 //50000
+#define MUESTRA_MAX 1000
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
@@ -51,10 +51,10 @@ const static std::unordered_map<std::string, double> cityBeta{
 
 std::string name = "bogota";
 
-static const double beta = 3.0 * cityBeta.at(name);
+static const double beta = 8.0 * cityBeta.at(name);
 static const double p = 1.0;
 static const int nPasos = 30;//300
-static const int nIterations = 8;
+static const int nIterations = 24;
 
 std::mutex resultsMutex;
 
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_10k_beta_3,0.txt";
+    std::string output = path + "out/" + name + "_30k_beta_8,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]){
 
     Log::debug("EigenVector read.");
 
-    size_t sizeLinks = 1; //33
+    size_t sizeLinks = 1025; //33
     size_t sizeTests = 1;
 
     std::vector<std::vector<Result>> heatMap(sizeLinks);
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            size_t NlcTemp = T.Links;// * (i+1) / (1 * sizeLinks + 1); //Care to not choose 0
+            size_t NlcTemp = T.Links * (i+1) / (1 * sizeLinks); //Care to not choose 0
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));

@@ -104,11 +104,11 @@ void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks,
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 void countPopulationLinks(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks, std::vector<std::vector<Result>>& heatMap);
 
-#define MUESTRA_MAX 10000
+#define MUESTRA_MAX 1000
 
 std::string name = "bogota";
                         //beta_c de bogota en p=1: 1/20.6942, 1/1.78102 para areas de ZATs
-static double beta = 3.0 / 1.78102;
+static double beta = 8.0 / 1.78102;
 static double p = 1.0;
 static int nPasos = 30;
 static int nIterations = 24 * 1; //24 * 32
@@ -119,7 +119,7 @@ int main(){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_transport_10k_beta_3,0.txt";
+    std::string output = path + "out/" + name + "_transport_30k_beta_8,0.txt";
 
     MobMatrix T{path + "bogota/mobnetwork.txt", path + "bogota/Poparea.txt"};
 
@@ -127,7 +127,7 @@ int main(){
 
     auto W = readWeights(T, path + "bogota/weights_800m.txt");
 
-    constexpr size_t sizeLinks = 1;
+    constexpr size_t sizeLinks = 257;
 	constexpr size_t sizeTests = 1;
 
     std::vector<std::vector<Result>> heatMap;
@@ -157,7 +157,7 @@ int main(){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            size_t NlcTemp = rho.size();// * (i+1) / (1 * sizeLinks + 1); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
+            size_t NlcTemp = rho.size() * (i+1) / (1 * sizeLinks + 1); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, n, rho);
         })));
