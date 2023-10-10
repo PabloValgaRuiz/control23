@@ -32,7 +32,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 50000 //50000
+#define MUESTRA_MAX 200000 //50000
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
@@ -56,7 +56,7 @@ static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
 
-
+/*
 int main(int argc, char* argv[]){
 
     Instrumentor::Get().BeginSession("Session Name");
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 0;
+            constexpr int offset = 1;
             size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
@@ -96,9 +96,13 @@ int main(int argc, char* argv[]){
 
     Log::debug("Links chosen.");
 
+
     //__________________________________ITERATING_____________________________________
-    std::ofstream file(path + "out/attackRateMap/" + output + ".txt");
-    for(double beta = 1 * cityBeta.at(name); beta <= 8 * cityBeta.at(name); beta += (7.0 * cityBeta.at(name))/32){
+    std::ofstream file(path + "out/attackRateMap/" + output + "beta_2-3.txt");
+
+    double beta0 = cityBeta.at(name);
+    double beta_diff = (2.0 * beta0)/32;
+    for(double beta = 2 * beta0; beta <= 3 * beta0; beta += beta_diff){
         
         attackRate.assign(attackRate.size(), Result({0,0}));
         
@@ -127,7 +131,40 @@ int main(int argc, char* argv[]){
     Instrumentor::Get().EndSession();
     return 0;
 }
+*/
 
+int main(int argc, char* argv[]){
+
+    ThreadPool pool{24};
+
+    std::string output = name;// + "_beta_8,0.txt";
+
+    MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
+    std::cout << T.Pob << std::endl;
+    auto eigenVector = readEigen(T, name);
+
+    size_t sizeLinks = 33; //33
+
+    std::vector<std::vector<Result>> results(sizeLinks);
+    for(auto& i : results)  i.resize(nPasos);
+    std::vector<Result> attackRate(sizeLinks);
+
+    //________________________________CHOOSING LINKS_________________________________
+
+    constexpr size_t NlcTemp = 12915; //Number of links chosen
+    Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
+
+    std::ofstream outfile(path + "out/chosenLinks/" + std::to_string(NlcTemp) + "_" + name + ".txt");
+    for(int i = 0; i < chosenLinks.N; i++){
+        for(int j = 0; j < chosenLinks.vecinos[i]; j++){
+            outfile << i << "\t" << chosenLinks.Mvecinos[i][j] << "\t" << chosenLinks[i][j].Pop << "\n";
+        }
+    }
+
+    Log::debug("Links chosen.");
+
+    return 0;
+}
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<std::vector<Result>>& results,
     std::vector<Result>& attackRate, double beta){
     
@@ -145,11 +182,11 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
             std::lock_guard<std::mutex> lock(resultsMutex);
             results[l][t].mean += montecarlo.totalI;
             results[l][t].mean2 += static_cast<double>(montecarlo.totalI) * montecarlo.totalI;
+            
         }
         std::lock_guard<std::mutex> lock(resultsMutex);
         attackRate[l].mean += montecarlo.totalR;
         attackRate[l].mean2 += static_cast<double>(montecarlo.totalR) * montecarlo.totalR;
-        //std::cout << montecarlo.totalR << std::endl;
     }
 }
 
@@ -290,7 +327,6 @@ mainPROFILE_FUNCTION();
             }
         }
         outOfLoop:
-
         Log::debug("Saved cumulative population.");
 
         //Add it to the chosen links matrix
@@ -299,6 +335,7 @@ mainPROFILE_FUNCTION();
         chosenLinksPop.Mvecinos[I].push_back(T.Mvecinos[I][J]);
         chosenLinksPop[I].push_back(Link{static_cast<int>(T.Mpesos[I][J]), cumulativePop});
         chosenLinksPop.Total += T.Mpesos[I][J]; //Total chosen population
+
     }
 
     Log::debug("Links chosen");

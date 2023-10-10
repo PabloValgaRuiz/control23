@@ -183,10 +183,10 @@ int main(){
 
     //__________________________________ITERATING______________________________________
 
-    std::ofstream file(path + "out/attackRateMap/" + name + "_transport2.txt");
+    std::ofstream file(path + "out/attackRateMap/" + name + "_transport_beta_2-3.txt");
 
-    double beta_diff = (7.0 * beta_bogota)/32;
-    for(double beta = 3 * beta_bogota; beta <= 5 * beta_bogota; beta += beta_diff){
+    double beta_diff = (2.0 * beta_bogota)/32;
+    for(double beta = 2 * beta_bogota; beta <= 3 * beta_bogota; beta += beta_diff){
         
         for(auto& i : attackRate){
             i.mean = 0;
@@ -504,7 +504,7 @@ mainPROFILE_FUNCTION();
     std::vector<RhoMatrix> rho_cut;
     std::copy(rho.begin(), rho.begin() + NlinksChosen, std::back_inserter(rho_cut));
 
-    
+
     std::sort(rho_cut.begin(), rho_cut.end());
     MobTrMatrix n_cut{};
 
