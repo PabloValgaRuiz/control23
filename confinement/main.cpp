@@ -32,7 +32,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 200000 //50000
+#define MUESTRA_MAX 200000 //200000
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]){
 
     //________________________________CHOOSING LINKS_________________________________
 
-    constexpr size_t NlcTemp = 12915; //Number of links chosen
+    constexpr size_t NlcTemp = 800; //Number of links chosen
     Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
 
     std::ofstream outfile(path + "out/chosenLinks/" + std::to_string(NlcTemp) + "_" + name + ".txt");
