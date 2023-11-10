@@ -193,11 +193,18 @@ int main(){
         future.wait();
     
     std::ofstream f(output);
+    f << "population" << "\t" << "links" << "\t" << "tests" << "\t" << "detected" << "\t" << "error" << "\n";
 	for(int i = 0; i < heatMap.size(); i++)//iteracion sobre links
 		for(int j = 0; j < heatMap[i].size(); j++)//iteracion sobre tests
                 //Cantidad de links: Copia de mas arriba, al elegir los links
-			f << heatMap[i][j].population_link << "\t" << ((j+1) * MUESTRA_MAX) * nPasos / heatMap[i].size() << "\t" << heatMap[i][j].mean/nIterations << "\t" <<
-            2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations * nPasos)))/((nIterations * nPasos) * ((nIterations * nPasos)-1))) << "\n";
+			f << heatMap[i][j].population_link << "\t" 
+              << vectorChosenLinks[i].size() << "\t"
+              << ((j+1) * MUESTRA_MAX) * nPasos / heatMap[i].size() << "\t"
+              << heatMap[i][j].mean/nIterations << "\t"
+            //Std deviation
+              << 2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations)))/nIterations) << "\n";
+            //Std error
+            //<< 2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
 	f.close();
 
     return 0;
@@ -208,7 +215,8 @@ void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks,
     MC_DistDiaNocheF montecarlo{0, p, T};
     montecarlo.setLambda(beta);
 	montecarlo.inicializar(0.0001);
-	int PobInf;
+
+	std::vector<std::vector<double>> mean(heatMap.size(), std::vector<double>(heatMap[0].size(), 0.0));
 
     for (int t = 0; t < nPasos; t++){
     {
@@ -236,17 +244,23 @@ void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks,
 
                 int MUESTRA = ((j+1) * MUESTRA_MAX) / heatMap[i].size();
                 
-                PobInf = 0;
+                int PobInf = 0;
                 for(int k = 0; k < MUESTRA && k < sample.size(); k++)
                     if(montecarlo.getEst()[sample[k]] == E)
                         PobInf++;
 
-                std::lock_guard<std::mutex> lock(heatMapMutex);
-                heatMap[i][j].mean += static_cast<double>(PobInf);
-                heatMap[i][j].mean2 += static_cast<double>(PobInf) * static_cast<double>(PobInf);
+                mean[i][j] += static_cast<double>(PobInf);
             }
             //std::lock_guard<std::mutex> lock(heatMapMutex);
             //Log::debug(std::to_string(chosenLinks[i].Links) + "\t" + std::to_string(MUESTRA_MAX * nPasos) + "\t" + std::to_string(PobInf));
+        }
+    }
+    
+    std::lock_guard<std::mutex> lock(heatMapMutex);
+    for(int l = 0; l < chosenLinks.size(); l++){
+        for(int j = 0; j < heatMap[l].size(); j++){
+            heatMap[l][j].mean += static_cast<double>(mean[l][j]);
+            heatMap[l][j].mean2 += static_cast<double>(mean[l][j]) * static_cast<double>(mean[l][j]);
         }
     }
 }

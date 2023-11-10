@@ -145,16 +145,12 @@ int main(int argc, char* argv[]){
 
     size_t sizeLinks = 33; //33
 
-    std::vector<std::vector<Result>> results(sizeLinks);
-    for(auto& i : results)  i.resize(nPasos);
-    std::vector<Result> attackRate(sizeLinks);
-
     //________________________________CHOOSING LINKS_________________________________
 
-    constexpr size_t NlcTemp = 800; //Number of links chosen
+    const size_t NlcTemp = 20000; //Number of links chosen
     Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
 
-    std::ofstream outfile(path + "out/chosenLinks/" + std::to_string(NlcTemp) + "_" + name + ".txt");
+    std::ofstream outfile(path + "../figures/links_map/chosen_links/" + std::to_string(NlcTemp) + "_" + name + ".txt");
     for(int i = 0; i < chosenLinks.N; i++){
         for(int j = 0; j < chosenLinks.vecinos[i]; j++){
             outfile << i << "\t" << chosenLinks.Mvecinos[i][j] << "\t" << chosenLinks[i][j].Pop << "\n";

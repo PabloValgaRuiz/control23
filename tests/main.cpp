@@ -49,9 +49,9 @@ const static std::unordered_map<std::string, double> cityBeta{
     {"bogota", 1.0 / 1.78102}
 };
 
-std::string name = "bogota";
+std::string name = "ma";
 
-static const double beta = 8.0 * cityBeta.at(name);
+static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
 static const int nPasos = 30;//300
 static const int nIterations = 24;
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_30k_beta_8,0.txt";
+    std::string output = path + "out/" + name + "_150k_beta_3,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
@@ -75,8 +75,8 @@ int main(int argc, char* argv[]){
 
     Log::debug("EigenVector read.");
 
-    size_t sizeLinks = 1025; //33
-    size_t sizeTests = 1;
+    size_t sizeLinks = 257; //33
+    size_t sizeTests = 129;
 
     std::vector<std::vector<Result>> heatMap(sizeLinks);
     for(auto& i : heatMap)  i.resize(sizeTests);
@@ -119,12 +119,23 @@ int main(int argc, char* argv[]){
 
 
     std::ofstream f(output);
+
+    f << "population" << "\t" << "links" << "\t" << "tests" << "\t" << "detected" << "\t" << "error" << "\n";
 	for(int i = 0; i < heatMap.size(); i++)//iteracion sobre links
-		for(int j = 0; j < heatMap[i].size(); j++)//iteracion sobre tests
+		for(int j = 0; j < heatMap[i].size(); j++){//iteracion sobre tests
                 //Cantidad de links: Copia de mas arriba, al elegir los links
-			f << heatMap[i][j].population_link << "\t" << ((j+1) * MUESTRA_MAX) * nPasos / heatMap[i].size() << "\t" << heatMap[i][j].mean/nIterations << "\t" <<
-            2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations * nPasos)))/((nIterations * nPasos) * ((nIterations * nPasos)-1))) << "\n";
-	f.close();
+			f << heatMap[i][j].population_link << "\t" 
+              << vectorChosenLinks[i].Links << "\t"
+              << ((j+1) * MUESTRA_MAX) * nPasos / heatMap[i].size() << "\t"
+              << heatMap[i][j].mean/nIterations << "\t"
+            //Std deviation
+              << 2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations)))/nIterations) << "\n";
+            //Std error
+            //<< 2 * sqrt((heatMap[i][j].mean2 - (heatMap[i][j].mean * heatMap[i][j].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
+            if(j == heatMap[i].size() - 1)
+                std::cout << heatMap[i][j].mean2 << "\t" << heatMap[i][j].mean << "\t" << nIterations << std::endl;
+        }
+    f.close();
 
 
     Instrumentor::Get().EndSession();
@@ -154,13 +165,17 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
 
     MC_DistDiaNocheF montecarlo{0, p, T};
     montecarlo.setLambda(beta);
-    montecarlo.inicializar(0.0004);
+    montecarlo.inicializar(0.0001);
+
+    std::vector<std::vector<double>> mean(heatMap.size(), std::vector<double>(heatMap[0].size(), 0.0));
 
     for(int t = 0; t < nPasos; t++){
+        static std::mutex iterationMutex;
         montecarlo.iteracion(T);
-
-
-
+        {
+        std::lock_guard<std::mutex> lock(iterationMutex);
+        std::cout << "iteration: " << t << std::endl;
+        }
         for(int l = 0; l < chosenLinks.size(); l++){
 
             int statesIndex = 0;
@@ -200,12 +215,19 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
                     }
                 }
 
-                std::lock_guard<std::mutex> lock(resultsMutex);
-                heatMap[l][j].mean += static_cast<double>(PobInf);
-                heatMap[l][j].mean2 += static_cast<double>(PobInf) * static_cast<double>(PobInf);
+                mean[l][j] += static_cast<double>(PobInf);
             }
         }
     }
+    
+    std::lock_guard<std::mutex> lock(resultsMutex);
+    for(int l = 0; l < chosenLinks.size(); l++){
+        for(int j = 0; j < heatMap[l].size(); j++){
+            heatMap[l][j].mean += static_cast<double>(mean[l][j]);
+            heatMap[l][j].mean2 += static_cast<double>(mean[l][j]) * static_cast<double>(mean[l][j]);
+        }
+    }
+
 }
 
 int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, MC_DistDiaNocheF& montecarlo, int MUESTRA, std::mt19937& generator){

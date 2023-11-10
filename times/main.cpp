@@ -30,12 +30,12 @@ struct Result{
 Sparse<double> readEigen(const MobMatrix& T, const std::string& name);
 Sparse<Link> chooseLinks(int NlinksChosen, const MobMatrix& T, const Sparse<double>& eigenVector);
 void countPopulationLinks(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& results);
-void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& results);
+void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& infected_results, std::vector<Result>& time_results);
 int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, MC_DistDiaNocheF& montecarlo, int MUESTRA, std::mt19937& generator);
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 1000
+#define MUESTRA_MAX 5000
 #define THRESHOLD 1000
 
 const static std::unordered_map<std::string, double> cityBeta{
@@ -50,11 +50,11 @@ const static std::unordered_map<std::string, double> cityBeta{
     {"bogota", 1.0 / 1.78102}
 };
 
-std::string name = "bogota";
+std::string name = "ma";
 
-static const double beta = 8.0 * cityBeta.at(name);
+static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
-static const int nPasos = 30;//300
+static const int nPasos = 1;//30
 static const int nIterations = 24;
 
 std::mutex resultsMutex;
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_30k_beta_8,0.txt";
+    std::string output = path + "out/" + name + "_150k_beta_3,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
@@ -76,9 +76,10 @@ int main(int argc, char* argv[]){
 
     Log::debug("EigenVector read.");
 
-    size_t sizeLinks = 33; //33
+    constexpr size_t sizeLinks = 256+1; //33
 
-    std::vector<Result> results(sizeLinks);
+    std::vector<Result> infected_results(sizeLinks);
+    std::vector<Result> time_results(sizeLinks);
 
     std::vector<Sparse<Link>> vectorChosenLinks(sizeLinks);
 
@@ -101,7 +102,9 @@ int main(int argc, char* argv[]){
 
     //_______________________________COUNTING PEOPLE___________________________________
 
-    countPopulationLinks(T, vectorChosenLinks, results);
+    countPopulationLinks(T, vectorChosenLinks, infected_results);
+    countPopulationLinks(T, vectorChosenLinks, time_results);
+
 
     Log::info("Population counted.");
     //__________________________________ITERATING_____________________________________
@@ -109,7 +112,7 @@ int main(int argc, char* argv[]){
     for(int l = 0; l < nIterations; l++){
         futures.push_back(std::move(pool.enqueue([&, l]{
 
-            iterations(T, vectorChosenLinks, results);
+            iterations(T, vectorChosenLinks, infected_results, time_results);
 
         })));
     }
@@ -118,10 +121,25 @@ int main(int argc, char* argv[]){
 
 
     std::ofstream f(output);
-	for(int i = 0; i < results.size(); i++)//iteracion sobre links
+    f << "population" << "\t" << "links" << "\t" << "tests" << "\t" << "detected" << "\t" << "time" << "\t" << "error" << "\t" << "time_error" << "\n";
+	for(int i = 0; i < infected_results.size(); i++){//iteracion sobre links
             //Cantidad de links: Copia de mas arriba, al elegir los links
-		f << results[i].population_link << "\t" << MUESTRA_MAX << "\t" << results[i].mean/nIterations << "\t" <<
-            2 * sqrt((results[i].mean2 - (results[i].mean * results[i].mean / (nIterations * nPasos)))/((nIterations * nPasos) * ((nIterations * nPasos)-1))) << "\n";
+		f << infected_results[i].population_link << "\t"
+		  << vectorChosenLinks[i].Links << "\t"
+          << MUESTRA_MAX * nPasos << "\t"
+          << infected_results[i].mean/nIterations << "\t"
+          << time_results[i].mean/nIterations << "\t"
+          //Std deviation
+          << 2 * sqrt((infected_results[i].mean2 - (infected_results[i].mean * infected_results[i].mean / nIterations))/nIterations) << "\t"
+          //Std error
+          //<< 2 * sqrt((results[i].mean2 - (results[i].mean * results[i].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
+          
+          << 2 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
+          
+          std::cout << infected_results[i].mean2 << "\t" << infected_results[i].mean << "\t" << nIterations << std::endl;
+          std::cout << time_results[i].mean2 << "\t" << time_results[i].mean << "\t" << nIterations << std::endl;
+
+    }
 	f.close();
 
 
@@ -144,27 +162,42 @@ void countPopulationLinks(const MobMatrix& T, const std::vector<Sparse<Link>>& c
     }
 }
 
-void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& results){
-    
+void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& infected_results, std::vector<Result>& time_results){
+    mainPROFILE_FUNCTION();
+
+
     std::mt19937 mt(std::random_device{}());
 
     MC_DistDiaNocheF montecarlo{0, p, T};
     montecarlo.setLambda(beta);
-    montecarlo.inicializar(0.0004);
+    montecarlo.inicializar(0.0001);
 
-    std::vector<int> means(chosenLinks.size(), nPasos);
-    std::vector<int> PobInf(chosenLinks.size(), 0);
+    std::vector<int> infected_means(chosenLinks.size(), 0);
+    std::vector<int> time_means(chosenLinks.size(), nPasos);
 
     for(int t = 0; t < nPasos; t++){
+        {
+        mainPROFILE_SCOPE("Montecarlo");
         montecarlo.iteracion(T);
+        }
 
+
+        static std::mutex iterationMutex;
+        {
+        std::lock_guard<std::mutex> lock(iterationMutex);
+        std::cout << "iteration: " << t << std::endl;
+        }
+
+        {
+        mainPROFILE_SCOPE("loop links");
         for(int l = 0; l < chosenLinks.size(); l++){
 
             int statesIndex = 0;
-
-            auto chosenLink = chosenLinks[l]; //The last group of links (all of them)
+            const auto& chosenLink = chosenLinks[l]; //The last group of links (all of them)
             std::vector<int> MCLabels(chosenLink.Total);
 
+            {
+                mainPROFILE_SCOPE("MCLabels");
             for(int i = 0; i < chosenLink.N; i++){
                 for(int j = 0; j < chosenLink.vecinos[i]; j++){
                     //Find the first person in the link in the Monte Carlo agent array
@@ -178,30 +211,39 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
                     statesIndex += chosenLink[i][j].Pop;
                 }
             }
+            }
 
-            
             // int PobInf = contarInfectadosChosen(T, chosenLinks[l], montecarlo, MUESTRA_MAX, mt);
-        
+            {
+            mainPROFILE_SCOPE("Shuffle");
             MCLabels = fisherYatesShuffle(MUESTRA_MAX, MCLabels, mt);
-
+            }
             //Take pieces from the sample
 
-            
+            int PobInf = 0;
+            {
+            mainPROFILE_SCOPE("Counting infected");
             for(int i = 0; i < MUESTRA_MAX; i++){
                 if(montecarlo.getEst()[MCLabels[i]] == E || montecarlo.getEst()[MCLabels[i]] == I){
-                    PobInf[l]++;
+                    PobInf++;
                     //montecarlo.getEst()[label] = R;
                 }
             }
-            if(PobInf[l] >= THRESHOLD && t < means[l])
-                means[l] = t;
+            }
+            infected_means[l] += PobInf;
+            if(infected_means[l] >= THRESHOLD && t < time_means[l])
+                time_means[l] = t;
+        }
         }
 
     }
+    
+    std::lock_guard<std::mutex> lock(resultsMutex);
     for(int l = 0; l < chosenLinks.size(); l++){
-        std::lock_guard<std::mutex> lock(resultsMutex);
-        results[l].mean += static_cast<double>(means[l]);
-        results[l].mean2 += static_cast<double>(means[l]) * static_cast<double>(means[l]);
+        time_results[l].mean += static_cast<double>(time_means[l]);
+        time_results[l].mean2 += static_cast<double>(time_means[l]) * static_cast<double>(time_means[l]);
+        infected_results[l].mean += static_cast<double>(infected_means[l]);
+        infected_results[l].mean2 += static_cast<double>(infected_means[l]) * static_cast<double>(infected_means[l]);
     }
 
 }
