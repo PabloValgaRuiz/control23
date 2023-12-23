@@ -56,7 +56,6 @@ static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
 
-/*
 int main(int argc, char* argv[]){
 
     Instrumentor::Get().BeginSession("Session Name");
@@ -131,8 +130,8 @@ int main(int argc, char* argv[]){
     Instrumentor::Get().EndSession();
     return 0;
 }
-*/
 
+/*
 int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
@@ -161,6 +160,8 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
+*/
+
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<std::vector<Result>>& results,
     std::vector<Result>& attackRate, double beta){
     

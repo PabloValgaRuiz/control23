@@ -35,7 +35,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-#define MUESTRA_MAX 5000
+#define MUESTRA_MAX 30000
 #define THRESHOLD 1000
 
 const static std::unordered_map<std::string, double> cityBeta{
@@ -52,9 +52,9 @@ const static std::unordered_map<std::string, double> cityBeta{
 
 std::string name = "ma";
 
-static const double beta = 3.0 * cityBeta.at(name);
+static const double beta = 4.0 * cityBeta.at(name);
 static const double p = 1.0;
-static const int nPasos = 1;//30
+static const int nPasos = 60;//30
 static const int nIterations = 24;
 
 std::mutex resultsMutex;
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_150k_beta_3,0.txt";
+    std::string output = path + "out/" + name + "_30k_60d_beta_4,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
