@@ -31,8 +31,10 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
 int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, MC_DistDiaNocheF& montecarlo, int MUESTRA, std::mt19937& generator);
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
+std::vector<double> countPopulationLinks(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks);
 
 #define MUESTRA_MAX 200000 //200000
+//Boston: 200k
 
 const static std::unordered_map<std::string, double> cityBeta{
     {"baltimore", 0.318387},
@@ -47,7 +49,7 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 std::string path = "../";
-std::string name = "bogota";
+std::string name = "miami";
 
 //static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
@@ -55,7 +57,7 @@ static const int nPasos = 300;//300
 static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
-
+/*
 int main(int argc, char* argv[]){
 
     Instrumentor::Get().BeginSession("Session Name");
@@ -82,8 +84,9 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 1;
-            size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
+            constexpr int offset = 3;
+            size_t NlcTemp = T.Links * (i+1 + offset) / (2.8 * sizeLinks + offset); //Care to not choose 0
+                                                        //Boston: 2.8 * sizeLinks + offset
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
@@ -93,15 +96,17 @@ int main(int argc, char* argv[]){
     }
     futures.clear();
 
+    auto link_populations = countPopulationLinks(T, vectorChosenLinks);
+
     Log::debug("Links chosen.");
 
-
     //__________________________________ITERATING_____________________________________
-    std::ofstream file(path + "out/attackRateMap/" + output + "beta_2-3.txt");
+    std::ofstream file(path + "out/attackRateMap/" + output + "beta_5.txt");
+    file << "beta" << "\t" << "population" << "\t" << "links" << "\t" << "attackRate" << "\t" << "error" << "\n";
 
     double beta0 = cityBeta.at(name);
-    double beta_diff = (2.0 * beta0)/32;
-    for(double beta = 2 * beta0; beta <= 3 * beta0; beta += beta_diff){
+    double beta_diff = beta0/4;
+    for(double beta = 5 * beta0; beta < 5.001 * beta0; beta += beta_diff){
         
         attackRate.assign(attackRate.size(), Result({0,0}));
         
@@ -112,15 +117,12 @@ int main(int argc, char* argv[]){
 
             })));
         }
-        
+
         for(auto& future : futures)
         future.wait();
         for(int l = 0; l < vectorChosenLinks.size(); l++){
-            file << beta / cityBeta.at(name) << "\t" << vectorChosenLinks[l].Links << "\t" << attackRate[l].mean / nIterations << "\t"
-                 << 2 * sqrt((attackRate[l].mean2 - attackRate[l].mean*attackRate[l].mean/nIterations)/(nIterations * (nIterations - 1)))
-                 << "\n";
-            std::cout << beta / cityBeta.at(name) << "\t" << vectorChosenLinks[l].Links << "\t" << attackRate[l].mean / nIterations << "\t"
-                 << 2 * sqrt((attackRate[l].mean2 - attackRate[l].mean*attackRate[l].mean/nIterations)/(nIterations * (nIterations - 1)))
+            file << beta / cityBeta.at(name) << "\t" << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << attackRate[l].mean / nIterations << "\t"
+                 << 1.96 * sqrt((attackRate[l].mean2 - attackRate[l].mean*attackRate[l].mean/nIterations)/(nIterations * (nIterations - 1)))
                  << "\n";
         }
     }
@@ -130,8 +132,8 @@ int main(int argc, char* argv[]){
     Instrumentor::Get().EndSession();
     return 0;
 }
+*/
 
-/*
 int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
@@ -142,11 +144,10 @@ int main(int argc, char* argv[]){
     std::cout << T.Pob << std::endl;
     auto eigenVector = readEigen(T, name);
 
-    size_t sizeLinks = 33; //33
 
     //________________________________CHOOSING LINKS_________________________________
 
-    const size_t NlcTemp = 20000; //Number of links chosen
+    const size_t NlcTemp = 100; //Number of links chosen
     Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
 
     std::ofstream outfile(path + "../figures/links_map/chosen_links/" + std::to_string(NlcTemp) + "_" + name + ".txt");
@@ -160,7 +161,7 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
-*/
+
 
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<std::vector<Result>>& results,
     std::vector<Result>& attackRate, double beta){
@@ -340,4 +341,20 @@ mainPROFILE_FUNCTION();
     if(chosenLinksPop.Total < MUESTRA_MAX)
         Log::error("MUESTRA_MAX bigger than the number of people in the chosen links.");
     return chosenLinksPop;
+}
+
+std::vector<double> countPopulationLinks(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks){
+    std::vector<double> results(chosenLinks.size());
+    size_t temp;
+    for(int l = 0; l < chosenLinks.size(); l++){
+        const auto& chosenLink = chosenLinks[l];
+        temp = 0;
+        for(int i = 0; i < chosenLink.N; i++){
+            for(int j = 0; j < chosenLink.vecinos[i]; j++){
+                temp += chosenLink[i][j].Pop;
+            }
+        }
+        results[l] = temp;
+    }
+    return results;
 }

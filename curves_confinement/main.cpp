@@ -49,12 +49,12 @@ const static std::unordered_map<std::string, double> cityBeta{
 std::string path = "../";
 std::string name = "ma";
 
-static const int MUESTRA_MAX = 80000; //200000
-static const double beta = 4.0 * cityBeta.at(name);
-static std::string output = name + "_beta_4,0_80k";
+static const int MUESTRA_MAX = 0; //200000
+static const double beta = 6.0 * cityBeta.at(name);
+static std::string output = name + "_beta_6,0_0k";
 
-static constexpr size_t sizeLinks = 7; //33
-static const std::array<double, sizeLinks> links_to_choose = {1237, 2474, 3711, 6185, 12371, 22269, 40826};
+static constexpr size_t sizeLinks = 1; //33
+static const std::array<double, 7> links_to_choose = {1237, 2474, 3711, 6185, 12371, 22269, 40826};
 
 static const double p = 1.0;
 static const int nPasos = 300;//300
@@ -88,9 +88,9 @@ int main(int argc, char* argv[]){
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
             constexpr int offset = 1;
-            // size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
+            size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
             //Choose the Nlc highest component links in the eigenvector
-            vectorChosenLinks[i] = chooseLinks(links_to_choose[i], T, eigenVector);
+            vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
 	}
 	for(auto& future : futures){
@@ -119,17 +119,21 @@ int main(int argc, char* argv[]){
     for(auto& future : futures)
     future.wait();
 
+    //Write curves
 
-    std::ofstream file(path + "out/trajectories/" + output + ".txt");
-    file << "population" << "\t" << "links" << "\t" << "time" << "\t" << "infected" << "\t" << "error" << "\n";
-    for(int l = 0; l < sizeLinks; l++){
-        for(int j = 0; j < nPasos; j++){
-            results[l][j].mean /= nIterations;
-            results[l][j].mean2 /= nIterations;
-            results[l][j].mean2 = 1.96 * std::sqrt((results[l][j].mean2 - results[l][j].mean * results[l][j].mean)/(nIterations - 1)); //95% confidence interval
-            file << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << j << "\t" << results[l][j].mean << "\t" << results[l][j].mean2 << "\n";
-        }
-    }
+    // std::ofstream file(path + "out/trajectories/" + output + ".txt");
+    // file << "population" << "\t" << "links" << "\t" << "time" << "\t" << "infected" << "\t" << "error" << "\n";
+    // for(int l = 0; l < sizeLinks; l++){
+    //     for(int j = 0; j < nPasos; j++){
+    //         results[l][j].mean /= nIterations;
+    //         results[l][j].mean2 /= nIterations;
+    //         results[l][j].mean2 = 1.96 * std::sqrt((results[l][j].mean2 - results[l][j].mean * results[l][j].mean)/(nIterations - 1)); //95% confidence interval
+    //         file << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << j << "\t" << results[l][j].mean << "\t" << results[l][j].mean2 << "\n";
+    //     }
+    // }
+    // file.close();
+
+    //Write EPT
 
     std::ofstream fileEPT(path + "out/EPT/" + output + ".txt");
     fileEPT << "population" << "\t" << "links" << "\t" << "EPT" << "\t" << "error" << "\n";
@@ -139,8 +143,6 @@ int main(int argc, char* argv[]){
         EPT[l].mean2 = 1.96 * std::sqrt((EPT[l].mean2 - EPT[l].mean * EPT[l].mean)/(nIterations - 1)); //95% confidence interval
         fileEPT << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << EPT[l].mean << "\t" << EPT[l].mean2 << "\n";
     }
-
-
     fileEPT.close();
     
 }

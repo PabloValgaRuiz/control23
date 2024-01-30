@@ -97,7 +97,7 @@ typedef std::vector<MobTr> MobTrMatrix;
 
 Sparse<double> readEigen(const MobMatrix& T, const std::string& name);
 Sparse<double> readWeights(const MobMatrix& T, const std::string& name);
-std::pair<MobTrMatrix, std::vector<RhoMatrix>> 
+std::tuple<MobTrMatrix, std::vector<RhoMatrix>, std::vector<RhoMatrix>> 
     orderLines(const MobMatrix& T, const Sparse<double>& eigenVector, const Sparse<double>& W);
 MobTrMatrix chooseLinks(int NlinksChosen, const MobMatrix& T, const MobTrMatrix& n, const std::vector<RhoMatrix>& rho);
 void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks, std::vector<Result>& infected_results, std::vector<Result>& time_results, std::mt19937& generator);
@@ -121,7 +121,7 @@ int main(){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_transport_30k_beta_8,0.txt";
+    std::string output = path + "out/population/" + name + "_transport_30k_beta_8,0(2).txt";
 
     MobMatrix T{path + "bogota/mobnetwork.txt", path + "bogota/Poparea.txt"};
 
@@ -138,27 +138,24 @@ int main(){
  
     //________________________________CHOOSING LINKS_________________________________
     MobTrMatrix n;
+    std::vector<RhoMatrix> n_IJ;
     std::vector<RhoMatrix> rho;
-    std::tie(n, rho) = orderLines(T, eigenVector, W);
+    std::tie(n, n_IJ, rho) = orderLines(T, eigenVector, W);
 
     std::ofstream log("log.txt");
-    for(auto r : rho){
+    for(auto r : n_IJ){
         log << "I: " << r.I << ", J: " << r.J << ", value: " << r.value << std::endl;
     }
     log.close();
 
-    std::sort(n.begin(), n.end(), [](MobTr a, MobTr b){
-        if((a.I < b.I) || ((a.I == b.I) && (a.J < b.J)))
-            return true;
-        else return false;
-    });
 
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            size_t NlcTemp = rho.size() * (i+1) / (1 * sizeLinks + 1); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
-            //Choose the Nlc highest component links in the eigenvector
-            vectorChosenLinks[i] = chooseLinks(NlcTemp, T, n, rho);
+                                                    //1
+            size_t NlcTemp = n_IJ.size() * (i+1) / (sizeLinks + 1); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
+            //Choose the Nlc highest component links in the eigenvector, based on the vector of values provided (default rho, but can be n_IJ)
+            vectorChosenLinks[i] = chooseLinks(NlcTemp, T, n, n_IJ);
         })));
 	}
 	for(auto& future : futures){
@@ -371,8 +368,8 @@ mainPROFILE_FUNCTION();
     return Weights;
 }
 
-//Order the lines from I to J based on the eigenvector
-std::pair<MobTrMatrix, std::vector<RhoMatrix>> 
+//Sort the lines from I to J based on the eigenvector and return the triplet
+std::tuple<MobTrMatrix, std::vector<RhoMatrix>, std::vector<RhoMatrix>>
     orderLines(const MobMatrix& T, const Sparse<double>& eigenVector, const Sparse<double>& W /*Links-Lines (i-I)*/ ){
     //Agents from link i->j, that use line I->J (n_jJ^iI), we need to keep this vector
     MobTrMatrix n{};
@@ -464,7 +461,6 @@ std::pair<MobTrMatrix, std::vector<RhoMatrix>>
             //Remember that cumul was counting independently, we have to update it after solving the problem before
             cumul = n.back().cumulative + n.back().population;
             //There should be the same as in n_ij so let's make sure
-            if(i == 399 && T.Mvecinos[i][j] == 126){}
             if(it_last->cumulative + it_last->population - n[pos_first].cumulative != T.Mpesos[i][j]){
                 std::cout << i << " " << T.Mvecinos[i][j] << std::endl;
                 std::cout << "range: " << &(*it_last) - &(n[pos_first]) << std::endl;
@@ -477,10 +473,14 @@ std::pair<MobTrMatrix, std::vector<RhoMatrix>>
 
     }
 
+    //create a list of links for rho_IJ and n_IJ and sort it
+
     std::vector<RhoMatrix> rho_IJ{};
+    std::vector<RhoMatrix> n_IJ_linklist{};
 
     for(int I = 0; I < n_IJ.N; I++){
         for(int J = 0; J < n_IJ.vecinos[I]; J++){
+            n_IJ_linklist.emplace_back(static_cast<size_t>(I), static_cast<size_t>(n_IJ.Mvecinos[I][J]), n_IJ.Mpesos[I][J]);
             if(n_IJ[I][J] != 0)
                 rho_IJ.emplace_back(static_cast<size_t>(I), static_cast<size_t>(n_IJ.Mvecinos[I][J]), I_IJ[I][J] / n_IJ[I][J]);
             else rho_IJ.emplace_back(static_cast<size_t>(I), static_cast<size_t>(n_IJ.Mvecinos[I][J]), 0);
@@ -488,9 +488,16 @@ std::pair<MobTrMatrix, std::vector<RhoMatrix>>
     }
 
     //Sort the vector from higher to lower
+    std::sort(n_IJ_linklist.begin(), n_IJ_linklist.end(), [](RhoMatrix a, RhoMatrix b){return a.value > b.value;});
     std::sort(rho_IJ.begin(), rho_IJ.end(), [](RhoMatrix a, RhoMatrix b){return a.value > b.value;});
 
-    return {n, rho_IJ};
+    std::sort(n.begin(), n.end(), [](MobTr a, MobTr b){
+        if((a.I < b.I) || ((a.I == b.I) && (a.J < b.J)))
+            return true;
+        else return false;
+    });
+
+    return {n, n_IJ_linklist, rho_IJ};
 }
 
 MobTrMatrix chooseLinks(int NlinksChosen, const MobMatrix& T, const MobTrMatrix& n, const std::vector<RhoMatrix>& rho){
@@ -530,3 +537,4 @@ mainPROFILE_FUNCTION();
 
     return n_cut;
 }
+
