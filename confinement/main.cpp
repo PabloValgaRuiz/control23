@@ -234,7 +234,7 @@ std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937&
     int n = range.size();
 
     if(k > n){
-        std::cout << "Number of sampled people larger than the population in the links." << std::endl;;
+        std::cout << "Number of sampled people larger than the population in the links." << std::endl;
         k = n;
     }
     std::vector<int> reservoir; reservoir.resize(k);
