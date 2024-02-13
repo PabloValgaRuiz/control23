@@ -47,20 +47,21 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 std::string path = "../";
-std::string name = "ma";
+std::string name = "bogota";
 
-static const int MUESTRA_MAX = 0; //200000
-static const double beta = 6.0 * cityBeta.at(name);
-static std::string output = name + "_beta_6,0_0k";
+static const int MUESTRA_MAX = 200000; //200000
+static const double beta = 3.0 * cityBeta.at(name);
+static std::string output = name + "_beta_3,0_150k";
 
-static constexpr size_t sizeLinks = 1; //33
-static const std::array<double, 7> links_to_choose = {1237, 2474, 3711, 6185, 12371, 22269, 40826};
+static constexpr size_t sizeLinks = 6; //33
+static const std::array<double, 6> links_to_choose = {5000, 10000, 25000, 35000, 45000, 50000};
 
 static const double p = 1.0;
 static const int nPasos = 300;//300
 static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
+/*
 
 int main(int argc, char* argv[]){
 
@@ -78,7 +79,6 @@ int main(int argc, char* argv[]){
 
     std::vector<std::vector<Result>> results(sizeLinks);
     for(auto& i : results)  i.resize(nPasos);
-    std::vector<Result> attackRate(sizeLinks);
     std::vector<Result> EPT(sizeLinks); //Epidemic peak time
     std::vector<Sparse<Link>> vectorChosenLinks(sizeLinks);
 
@@ -87,8 +87,10 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 1;
-            size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
+            // constexpr int offset = 1;
+            // size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
+            size_t NlcTemp = links_to_choose[i];
+
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
@@ -105,7 +107,6 @@ int main(int argc, char* argv[]){
 
     //__________________________________ITERATING_____________________________________
         
-    attackRate.assign(attackRate.size(), Result({0,0}));
     EPT.assign(EPT.size(), Result({0,0}));
         
     for(int l = 0; l < nIterations; l++){
@@ -121,36 +122,37 @@ int main(int argc, char* argv[]){
 
     //Write curves
 
-    // std::ofstream file(path + "out/trajectories/" + output + ".txt");
-    // file << "population" << "\t" << "links" << "\t" << "time" << "\t" << "infected" << "\t" << "error" << "\n";
-    // for(int l = 0; l < sizeLinks; l++){
-    //     for(int j = 0; j < nPasos; j++){
-    //         results[l][j].mean /= nIterations;
-    //         results[l][j].mean2 /= nIterations;
-    //         results[l][j].mean2 = 1.96 * std::sqrt((results[l][j].mean2 - results[l][j].mean * results[l][j].mean)/(nIterations - 1)); //95% confidence interval
-    //         file << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << j << "\t" << results[l][j].mean << "\t" << results[l][j].mean2 << "\n";
-    //     }
-    // }
-    // file.close();
+    std::ofstream file(path + "out/trajectories/" + output + ".txt");
+    file << "population" << "\t" << "links" << "\t" << "time" << "\t" << "infected" << "\t" << "error" << "\n";
+    for(int l = 0; l < sizeLinks; l++){
+        for(int j = 0; j < nPasos; j++){
+            results[l][j].mean /= nIterations;
+            results[l][j].mean2 /= nIterations;
+            results[l][j].mean2 = 1.96 * std::sqrt((results[l][j].mean2 - results[l][j].mean * results[l][j].mean)/(nIterations - 1)); //95% confidence interval
+            file << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << j << "\t" << results[l][j].mean << "\t" << results[l][j].mean2 << "\n";
+        }
+    }
+    file.close();
 
     //Write EPT
 
-    std::ofstream fileEPT(path + "out/EPT/" + output + ".txt");
-    fileEPT << "population" << "\t" << "links" << "\t" << "EPT" << "\t" << "error" << "\n";
-    for(int l = 0; l < sizeLinks; l++){
-        EPT[l].mean /= nIterations;
-        EPT[l].mean2 /= nIterations;
-        EPT[l].mean2 = 1.96 * std::sqrt((EPT[l].mean2 - EPT[l].mean * EPT[l].mean)/(nIterations - 1)); //95% confidence interval
-        fileEPT << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << EPT[l].mean << "\t" << EPT[l].mean2 << "\n";
-    }
-    fileEPT.close();
+    // std::ofstream fileEPT(path + "out/EPT/" + output + ".txt");
+    // fileEPT << "population" << "\t" << "links" << "\t" << "EPT" << "\t" << "error" << "\n";
+    // for(int l = 0; l < sizeLinks; l++){
+    //     EPT[l].mean /= nIterations;
+    //     EPT[l].mean2 /= nIterations;
+    //     EPT[l].mean2 = 1.96 * std::sqrt((EPT[l].mean2 - EPT[l].mean * EPT[l].mean)/(nIterations - 1)); //95% confidence interval
+    //     fileEPT << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << EPT[l].mean << "\t" << EPT[l].mean2 << "\n";
+    // }
+    // fileEPT.close();
     
 }
     Instrumentor::Get().EndSession();
     return 0;
 }
 
-/*
+*/
+
 int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
@@ -163,7 +165,7 @@ int main(int argc, char* argv[]){
 
     size_t sizeLinks = 33; //33
 
-    //________________________________CHOOSING LINKS_________________________________
+    //________________________________CHOOSING LINKS________________________________
 
     const size_t NlcTemp = 20000; //Number of links chosen
     Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
@@ -179,7 +181,7 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
-*/
+
 
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<std::vector<Result>>& results,
     std::vector<Result>& EPT, double beta){
@@ -205,12 +207,13 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
                 epidemicPeak = montecarlo.totalI;
                 epidemicPeakTime = t;
             }
+            std::cout << "Link " << l << ", step: " << t << std::endl;
         }
         std::lock_guard<std::mutex> lock(resultsMutex);
         EPT[l].mean += epidemicPeakTime;
         EPT[l].mean2 += static_cast<double>(epidemicPeakTime) * epidemicPeakTime;
 
-        std::cout << "Link " << l << " done." << std::endl;
+        // std::cout << "Link " << l << " done." << std::endl;
     }
 }
 

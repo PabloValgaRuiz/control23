@@ -2,4 +2,4 @@
 
 #define MAIN_PROFILING 0
 #define PROFILING 0
-#define SIS //SIS, SIR, SEAPIDR
+#define SEIR //SIS, SIR, SEAPIDR

@@ -138,7 +138,7 @@ void MC_Dist::inicializar(double _rhoInicial){
 
     for(int i = 0; i < Est.size(); i++){
         if(dist(mt) < _rhoInicial)
-            Est[i] = E;
+            Est[i] = I;
         else Est[i] = S;
     }
 }

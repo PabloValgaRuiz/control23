@@ -47,13 +47,13 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 std::string path = "../";
-std::string name = "miami";
+std::string name = "bogota";
 
-static const double beta = 4.0 * cityBeta.at(name);
+static const double beta = 3.0 * cityBeta.at(name);
 static const int MUESTRA_MAX = 200000; //200000
-static const size_t NlcTemp = 8000; //Number of links chosen
+static const size_t NlcTemp = 45000; //Number of links chosen
 
-static std::string output = name + "_beta_4,0_200k_links_8k";
+static std::string output = name + "_beta_3,0_200k_links_45k";
 
 static constexpr size_t sizeLinks = 1; //33
 

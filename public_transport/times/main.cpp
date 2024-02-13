@@ -104,13 +104,13 @@ void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks,
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 void countPopulationLinks(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks, std::vector<Result>& results);
 
-#define MUESTRA_MAX 1000
-#define THRESHOLD 400
+#define MUESTRA_MAX 20000
+#define THRESHOLD 1000
 
 
 std::string name = "bogota";
                         //beta_c de bogota en p=1: 1/20.6942, 1/1.78102 para areas de ZATs
-static double beta = 8.0 / 1.78102;
+static double beta = 4.0 / 1.78102;
 static double p = 1.0;
 static int nPasos = 30;
 static int nIterations = 24 * 1; //24 * 32
@@ -121,7 +121,7 @@ int main(){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/population/" + name + "_transport_30k_beta_8,0(2).txt";
+    std::string output = path + "out/population/" + name + "_transport_20k_beta_4,0.txt";
 
     MobMatrix T{path + "bogota/mobnetwork.txt", path + "bogota/Poparea.txt"};
 
@@ -129,7 +129,7 @@ int main(){
 
     auto W = readWeights(T, path + "bogota/weights_800m.txt");
 
-    constexpr size_t sizeLinks = 257;
+    constexpr size_t sizeLinks = 512+1;
 
     std::vector<Result> infected_results(sizeLinks);
     std::vector<Result> time_results(sizeLinks);
@@ -138,8 +138,8 @@ int main(){
  
     //________________________________CHOOSING LINKS_________________________________
     MobTrMatrix n;
-    std::vector<RhoMatrix> n_IJ;
-    std::vector<RhoMatrix> rho;
+    std::vector<RhoMatrix> n_IJ; //USE FOR THE POPULATION CURVE
+    std::vector<RhoMatrix> rho; //USE FOR THE TRANSPORT CURVE
     std::tie(n, n_IJ, rho) = orderLines(T, eigenVector, W);
 
     std::ofstream log("log.txt");
@@ -152,10 +152,14 @@ int main(){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-                                                    //1
-            size_t NlcTemp = n_IJ.size() * (i+1) / (sizeLinks + 1); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
+            constexpr int offset = -0.5;//can be negative, always larger than -1 (ex. -0.5)
+
+            size_t NlcTemp = n_IJ.size() * (i+1 + offset) / (sizeLinks + 1 + offset); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
+            
             //Choose the Nlc highest component links in the eigenvector, based on the vector of values provided (default rho, but can be n_IJ)
+            //FOR EIGENVECTOR, USE rho, FOR POPULATION IN TRANSPORT, USE n_IJ
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, n, n_IJ);
+
         })));
 	}
 	for(auto& future : futures){

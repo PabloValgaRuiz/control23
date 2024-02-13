@@ -134,6 +134,7 @@ int main(int argc, char* argv[]){
 }
 */
 
+
 int main(int argc, char* argv[]){
 
     ThreadPool pool{24};
@@ -147,7 +148,7 @@ int main(int argc, char* argv[]){
 
     //________________________________CHOOSING LINKS_________________________________
 
-    const size_t NlcTemp = 100; //Number of links chosen
+    const size_t NlcTemp = 2000; //Number of links chosen
     Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
 
     std::ofstream outfile(path + "../figures/links_map/chosen_links/" + std::to_string(NlcTemp) + "_" + name + ".txt");
