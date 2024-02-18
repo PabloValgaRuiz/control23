@@ -51,25 +51,20 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 static const std::string name = "bogota";
-
-static const double beta = 4.0 * cityBeta.at(name);
+static const double beta = 2.0 * cityBeta.at(name);
 static const double p = 1.0;
-static const int nPasos = 60;//30 - 60
+static const int nPasos = 120;//30 - 60
 static const int nIterations = 24;
-
 std::mutex resultsMutex;
 
-
 int main(int argc, char* argv[]){
-
     Instrumentor::Get().BeginSession("Session Name");
 {
     InstrumentationTimer timer("Program");
-
     ThreadPool pool{24};
 
     std::string output = path + "out/" + name + "_" +   std::to_string(MUESTRA_MAX/1000) + "k_" + 
-                                                        std::to_string(nPasos) + "d_beta_4,0.txt";
+                                                        std::to_string(nPasos) + "d_beta_2,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;

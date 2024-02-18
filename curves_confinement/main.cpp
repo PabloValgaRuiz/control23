@@ -50,18 +50,22 @@ std::string path = "../";
 std::string name = "bogota";
 
 static const int MUESTRA_MAX = 200000; //200000
-static const double beta = 3.0 * cityBeta.at(name);
-static std::string output = name + "_beta_3,0_150k";
+static const double beta = 4.0 * cityBeta.at(name);
+static std::string output = name + "_beta_3,0_200k";
 
-static constexpr size_t sizeLinks = 6; //33
+static constexpr size_t sizeLinks = 6;
+                                                        //Bogota
 static const std::array<double, 6> links_to_choose = {5000, 10000, 25000, 35000, 45000, 50000};
+
+                                                        //Miami
+// static const std::array<double, 6> links_to_choose = {4000, 6000, 7000, 8000, 9000, 10000};
 
 static const double p = 1.0;
 static const int nPasos = 300;//300
 static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
-/*
+
 
 int main(int argc, char* argv[]){
 
@@ -148,37 +152,6 @@ int main(int argc, char* argv[]){
     
 }
     Instrumentor::Get().EndSession();
-    return 0;
-}
-
-*/
-
-int main(int argc, char* argv[]){
-
-    ThreadPool pool{24};
-
-    std::string output = name;// + "_beta_8,0.txt";
-
-    MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
-    std::cout << T.Pob << std::endl;
-    auto eigenVector = readEigen(T, name);
-
-    size_t sizeLinks = 33; //33
-
-    //________________________________CHOOSING LINKS________________________________
-
-    const size_t NlcTemp = 20000; //Number of links chosen
-    Sparse<Link> chosenLinks = chooseLinks(NlcTemp, T, eigenVector);
-
-    std::ofstream outfile(path + "../figures/links_map/chosen_links/" + std::to_string(NlcTemp) + "_" + name + ".txt");
-    for(int i = 0; i < chosenLinks.N; i++){
-        for(int j = 0; j < chosenLinks.vecinos[i]; j++){
-            outfile << i << "\t" << chosenLinks.Mvecinos[i][j] << "\t" << chosenLinks[i][j].Pop << "\n";
-        }
-    }
-
-    Log::debug("Links chosen.");
-
     return 0;
 }
 
@@ -319,6 +292,7 @@ Sparse<Link> chooseLinks(int NlinksChosen, const MobMatrix& T, const Sparse<doub
 mainPROFILE_FUNCTION();
 
     if(NlinksChosen > T.Links) Log::error("More chosen links than there are in the network");
+
 
     Sparse<Link> chosenLinksPop; chosenLinksPop.N = eigenVector.N;
     chosenLinksPop.vecinos.resize(T.N);

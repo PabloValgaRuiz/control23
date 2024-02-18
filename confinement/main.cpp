@@ -49,7 +49,7 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 std::string path = "../";
-std::string name = "miami";
+std::string name = "bogota";
 
 //static const double beta = 3.0 * cityBeta.at(name);
 static const double p = 1.0;
@@ -57,8 +57,10 @@ static const int nPasos = 300;//300
 static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
-/*
-int main(int argc, char* argv[]){
+
+
+
+int MainConfinement(int argc, char* argv[]){
 
     Instrumentor::Get().BeginSession("Session Name");
 {
@@ -84,8 +86,8 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 3;
-            size_t NlcTemp = T.Links * (i+1 + offset) / (2.8 * sizeLinks + offset); //Care to not choose 0
+            constexpr int offset = 0;
+            size_t NlcTemp = T.Links * (i+1 + offset) / (sizeLinks + offset); //Care to not choose 0
                                                         //Boston: 2.8 * sizeLinks + offset
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
@@ -132,10 +134,8 @@ int main(int argc, char* argv[]){
     Instrumentor::Get().EndSession();
     return 0;
 }
-*/
 
-
-int main(int argc, char* argv[]){
+int WriteChosenLinks(int argc, char* argv[]){
 
     ThreadPool pool{24};
 
@@ -163,6 +163,9 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+int main(int argc, char* argv[]){
+    return WriteChosenLinks(argc, argv);
+}
 
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<std::vector<Result>>& results,
     std::vector<Result>& attackRate, double beta){

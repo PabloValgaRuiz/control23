@@ -51,9 +51,9 @@ std::string name = "bogota";
 
 static const double beta = 3.0 * cityBeta.at(name);
 static const int MUESTRA_MAX = 200000; //200000
-static const size_t NlcTemp = 45000; //Number of links chosen
+static const size_t NlcTemp = 5000; //Number of links chosen
 
-static std::string output = name + "_beta_3,0_200k_links_45k";
+static std::string output = name + "_beta_3,0_200k_links_5k";
 
 static constexpr size_t sizeLinks = 1; //33
 
