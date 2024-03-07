@@ -47,6 +47,19 @@ struct RhoMatrix{
     bool operator<(const MobilityTransport& M) const;
     //bool operator==(const MobilityTransportMatrix& M);
 };
+struct CriteriaPopMatrix{
+    size_t I{};
+    size_t J{};
+    double value{};
+    double population{};
+    CriteriaPopMatrix(RhoMatrix criteria_IJ, RhoMatrix n_IJ){
+        I = criteria_IJ.I;
+        J = criteria_IJ.J;
+        value = criteria_IJ.value;
+        population = n_IJ.value;
+        if(I != n_IJ.I || J != n_IJ.J) Log::error("The criteria and the population matrix don't match");
+    }
+};
 struct MobilityTransport{
     size_t i{};
     size_t j{};
@@ -100,20 +113,21 @@ Sparse<double> readWeights(const MobMatrix& T, const std::string& name);
 std::tuple<MobTrMatrix, std::vector<RhoMatrix>, std::vector<RhoMatrix>> 
     orderLines(const MobMatrix& T, const Sparse<double>& eigenVector, const Sparse<double>& W);
 MobTrMatrix chooseLinks(int NlinksChosen, const MobMatrix& T, const MobTrMatrix& n, const std::vector<RhoMatrix>& rho);
+std::vector<double> chooseNumberOfLinks(const std::vector<RhoMatrix>& n_IJ, const MobMatrix& T, const MobTrMatrix& n, const std::vector<RhoMatrix>& CRITERIA_IJ);
 void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks, std::vector<Result>& infected_results, std::vector<Result>& time_results, std::mt19937& generator);
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 void countPopulationLinks(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks, std::vector<Result>& results);
 
-#define MUESTRA_MAX 20000
-#define THRESHOLD 1000
-
-
-std::string name = "bogota";
-                        //beta_c de bogota en p=1: 1/20.6942, 1/1.78102 para areas de ZATs
-static double beta = 4.0 / 1.78102;
+static int nIterations = 24 * 8; //24 * 8
 static double p = 1.0;
+
+std::string name = "bogota"; //beta_c de bogota en p=1: 1/20.6942, 1/1.78102 para areas de ZATs
+
+static const int MUESTRA_MAX = 20000;
+static const int STEPS = 10000;
+static const int THRESHOLD = 1000;
+static double beta = 4.0 / 1.78102;
 static int nPasos = 30;
-static int nIterations = 24 * 1; //24 * 32
 
 std::mutex resultsMutex;
 
@@ -121,20 +135,13 @@ int main(){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/population/" + name + "_transport_20k_beta_4,0.txt";
+    std::string output = path + "out/" + name + "_transport_"+std::to_string(MUESTRA_MAX/1000)+"k_"+std::to_string(nPasos)+"d_beta_4,0.txt";
 
     MobMatrix T{path + "bogota/mobnetwork.txt", path + "bogota/Poparea.txt"};
 
     auto eigenVector = readEigen(T, path + "eigenvectors3/bogota_10.txt");
 
     auto W = readWeights(T, path + "bogota/weights_800m.txt");
-
-    constexpr size_t sizeLinks = 512+1;
-
-    std::vector<Result> infected_results(sizeLinks);
-    std::vector<Result> time_results(sizeLinks);
-    std::vector<MobTrMatrix> vectorChosenLinks;
-	vectorChosenLinks.resize(sizeLinks);
  
     //________________________________CHOOSING LINKS_________________________________
     MobTrMatrix n;
@@ -142,39 +149,32 @@ int main(){
     std::vector<RhoMatrix> rho; //USE FOR THE TRANSPORT CURVE
     std::tie(n, n_IJ, rho) = orderLines(T, eigenVector, W);
 
-    std::ofstream log("log.txt");
-    for(auto r : n_IJ){
-        log << "I: " << r.I << ", J: " << r.J << ", value: " << r.value << std::endl;
-    }
-    log.close();
+    std::vector<RhoMatrix>& CRITERIA_IJ = rho; //SELECT CRITERIA HERE
+                                        //Do this before sorting the criteria vector
+    const std::vector<double> NlcVector = chooseNumberOfLinks(n_IJ, T, n, CRITERIA_IJ);
+    const size_t sizeLinks = NlcVector.size();
 
+    //Sort the vector from higher to lower
+    std::sort(CRITERIA_IJ.begin(), CRITERIA_IJ.end(), [](RhoMatrix a, RhoMatrix b){return a.value > b.value;});
+    std::sort(n.begin(), n.end(), [](MobTr a, MobTr b){ return ((a.I < b.I) || ((a.I == b.I) && (a.J < b.J))) ? true : false; } );
+
+    std::vector<Result> infected_results(sizeLinks);
+    std::vector<Result> time_results(sizeLinks);
+    std::vector<MobTrMatrix> vectorChosenLinks(sizeLinks);
 
     std::vector<std::future<void>> futures;
-    for(size_t i = 0; i < sizeLinks; ++i){
+    for(size_t i = 0; i < NlcVector.size(); ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = -0.5;//can be negative, always larger than -1 (ex. -0.5)
-
-            size_t NlcTemp = n_IJ.size() * (i+1 + offset) / (sizeLinks + 1 + offset); //Care to not choose 0 or all the links (ex: if 1000 links, take from 166 to 866)
-            
-            //Choose the Nlc highest component links in the eigenvector, based on the vector of values provided (default rho, but can be n_IJ)
-            //FOR EIGENVECTOR, USE rho, FOR POPULATION IN TRANSPORT, USE n_IJ
-            vectorChosenLinks[i] = chooseLinks(NlcTemp, T, n, n_IJ);
+            //FOR EIGENVECTORS USE rho, FOR POPULATION USE n_IJ
+            vectorChosenLinks[i] = chooseLinks(NlcVector[i], T, n, CRITERIA_IJ);
 
         })));
-	}
+	} //4996
+    
 	for(auto& future : futures){
         future.wait();
     }
     futures.clear();
-
-    Log::debug("Links chosen.");
-
-    std::ofstream log2("log2.txt");
-    for(auto v : vectorChosenLinks[0]){
-        log2 << "i: " << v.i << ", j: " << v.j << ", I: " << v.I << ", J: " << v.J << std::endl;
-    }
-    log2.close();
-    //return 0;
 
     //_______________________________COUNTING PEOPLE___________________________________
 
@@ -249,7 +249,7 @@ void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks,
             //SHUFFLE
             const std::vector<int> sample{fisherYatesShuffle(MUESTRA_MAX, MCLabels, generator)};
 
-            //Take pieces from the sample            
+            //Take pieces from the sample
             int PobInf = 0;
             for(int k = 0; k < MUESTRA_MAX && k < sample.size(); k++)
                 if(montecarlo.getEst()[sample[k]] == E || montecarlo.getEst()[sample[k]] == I)
@@ -281,6 +281,53 @@ void countPopulationLinks(const MobMatrix& T, const std::vector<MobTrMatrix>& ch
         }
         results[i].population_link = temp;
     }
+}
+
+std::vector<double> chooseNumberOfLinks(const std::vector<RhoMatrix>& n_IJ, const MobMatrix& T, const MobTrMatrix& n, const std::vector<RhoMatrix>& CRITERIA_IJ){
+
+    std::vector<double> NlcVector;
+
+    //n_IJ has the population of each link I,J but it might not be ordered as CRITERIA_IJ, which could be n_IJ or rho_IJ.
+    //Create the matrix that will be ordered as the criteria but has population information
+    std::vector<CriteriaPopMatrix> CRITERIA_pop_IJ;
+    for(int i = 0; i < n_IJ.size(); i++){
+        CRITERIA_pop_IJ.emplace_back(CRITERIA_IJ[i], n_IJ[i]);
+    }
+    std::sort(CRITERIA_pop_IJ.begin(), CRITERIA_pop_IJ.end(), [](CriteriaPopMatrix a, CriteriaPopMatrix b){return a.value > b.value;});
+
+    //print to debug
+    for(int i = 0; i < 10; i++){
+        std::cout << CRITERIA_pop_IJ[i].I << " " << CRITERIA_pop_IJ[i].J << " " << CRITERIA_pop_IJ[i].value << " " << CRITERIA_pop_IJ[i].population << std::endl;
+    }
+
+    double totalPop = 0;
+    for(int i = 0; i < CRITERIA_pop_IJ.size(); i++){
+        const auto& link = CRITERIA_pop_IJ[i];
+        if(link.I != link.J){ //If they go from I to I, they are not using public transport and cannot be tested
+            totalPop += link.population;
+            if(totalPop >= MUESTRA_MAX){
+                NlcVector.push_back(i+1);
+                std::cout << i+1 << ", " << totalPop << std::endl;
+                break;
+            }
+        }
+    }
+
+    int step = 10000;
+    int threshold = totalPop + step;
+    for(int i = NlcVector[0]; i < CRITERIA_pop_IJ.size(); i++){
+        const auto& link = CRITERIA_pop_IJ[i];
+        if(link.I != link.J){
+            totalPop += link.population;
+            if(totalPop >= threshold){
+                NlcVector.push_back(i+1);
+                threshold = totalPop + step;
+                std::cout << i+1 << ", " << totalPop << std::endl;
+            }
+        }
+    }
+    return NlcVector;
+    // n_IJ.size() * (i+1 + offset) / (links_zoom * sizeLinks + 1 + offset);
 }
 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator){
@@ -477,7 +524,7 @@ std::tuple<MobTrMatrix, std::vector<RhoMatrix>, std::vector<RhoMatrix>>
 
     }
 
-    //create a list of links for rho_IJ and n_IJ and sort it
+    //create a list of links for rho_IJ and n_IJ WITHOUT SORTING IT
 
     std::vector<RhoMatrix> rho_IJ{};
     std::vector<RhoMatrix> n_IJ_linklist{};
@@ -490,16 +537,6 @@ std::tuple<MobTrMatrix, std::vector<RhoMatrix>, std::vector<RhoMatrix>>
             else rho_IJ.emplace_back(static_cast<size_t>(I), static_cast<size_t>(n_IJ.Mvecinos[I][J]), 0);
         }
     }
-
-    //Sort the vector from higher to lower
-    std::sort(n_IJ_linklist.begin(), n_IJ_linklist.end(), [](RhoMatrix a, RhoMatrix b){return a.value > b.value;});
-    std::sort(rho_IJ.begin(), rho_IJ.end(), [](RhoMatrix a, RhoMatrix b){return a.value > b.value;});
-
-    std::sort(n.begin(), n.end(), [](MobTr a, MobTr b){
-        if((a.I < b.I) || ((a.I == b.I) && (a.J < b.J)))
-            return true;
-        else return false;
-    });
 
     return {n, n_IJ_linklist, rho_IJ};
 }
@@ -537,7 +574,6 @@ mainPROFILE_FUNCTION();
         }
     }
 
-    Log::debug("Links chosen");
 
     return n_cut;
 }

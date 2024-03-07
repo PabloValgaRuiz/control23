@@ -51,10 +51,10 @@ const static std::unordered_map<std::string, double> cityBeta{
 };
 
 static const std::string name = "bogota";
-static const double beta = 2.0 * cityBeta.at(name);
+static const double beta = 4.0 * cityBeta.at(name);
 static const double p = 1.0;
-static const int nPasos = 120;//30 - 60
-static const int nIterations = 24;
+static const int nPasos = 30;//30 - 60
+static const int nIterations = 24*8;
 std::mutex resultsMutex;
 
 int main(int argc, char* argv[]){
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
     ThreadPool pool{24};
 
     std::string output = path + "out/" + name + "_" +   std::to_string(MUESTRA_MAX/1000) + "k_" + 
-                                                        std::to_string(nPasos) + "d_beta_2,0.txt";
+                                                        std::to_string(nPasos) + "d_beta_4,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]){
 
     Log::debug("EigenVector read.");
 
-    constexpr size_t sizeLinks = 256+1; //33
+    constexpr size_t sizeLinks = 512+1; //33
 
     std::vector<Result> infected_results(sizeLinks);
     std::vector<Result> time_results(sizeLinks);
@@ -84,8 +84,8 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 0;
-            size_t NlcTemp = T.Links * (i+1 + offset) / (1 * sizeLinks + offset); //Care to not choose 0
+            constexpr int offset = 4;
+            size_t NlcTemp = T.Links * (i+1 + offset) / (3 * sizeLinks + offset); //Care to not choose 0
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
@@ -127,11 +127,11 @@ int main(int argc, char* argv[]){
           << infected_results[i].mean/nIterations << "\t"
           << time_results[i].mean/nIterations << "\t"
           //Std deviation
-          << 2 * sqrt((infected_results[i].mean2 - (infected_results[i].mean * infected_results[i].mean / nIterations))/nIterations) << "\t"
+          << 1.96 * sqrt((infected_results[i].mean2 - (infected_results[i].mean * infected_results[i].mean / nIterations))/nIterations) << "\t"
           //Std error
           //<< 2 * sqrt((results[i].mean2 - (results[i].mean * results[i].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
           
-          << 2 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
+          << 1.96 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
           
           std::cout << infected_results[i].mean2 << "\t" << infected_results[i].mean << "\t" << nIterations << std::endl;
           std::cout << time_results[i].mean2 << "\t" << time_results[i].mean << "\t" << nIterations << std::endl;

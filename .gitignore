@@ -3,3 +3,4 @@ build_mac/
 build_windows/
 geo/
 .vscode
+zcta.parquet
