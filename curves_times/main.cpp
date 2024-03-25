@@ -122,8 +122,8 @@ int main(int argc, char* argv[]){
     std::ofstream file(output);
     file << "population" << "\t" << "links" << "\t" << "time" << "\t" << "infected" << "\t" << "error" << "\n";
     for(int j = 0; j < nPasos; j++){
-            total_infected[j].mean /= nIterations * sizeLinks;
-            total_infected[j].mean2 /= nIterations * sizeLinks;
+            total_infected[j].mean /= (nIterations * sizeLinks);
+            total_infected[j].mean2 /= (nIterations * sizeLinks);
             total_infected[j].mean2 = 1.96 * std::sqrt((total_infected[j].mean2 - total_infected[j].mean * total_infected[j].mean)/(nIterations * sizeLinks - 1)); //95% confidence interval
             file << 0 << "\t" << 0 << "\t" << j << "\t" << total_infected[j].mean << "\t" << total_infected[j].mean2 << "\n";
         }

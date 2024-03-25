@@ -35,7 +35,7 @@ int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, 
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-static constexpr int MUESTRA_MAX = 20000;
+static constexpr int MUESTRA_MAX = 30000;
 static constexpr int THRESHOLD = 1000;
 
 const static std::unordered_map<std::string, double> cityBeta{
@@ -54,7 +54,7 @@ static const std::string name = "bogota";
 static const double beta = 4.0 * cityBeta.at(name);
 static const double p = 1.0;
 static const int nPasos = 30;//30 - 60
-static const int nIterations = 24*8;
+static const int nIterations = 24*4;
 std::mutex resultsMutex;
 
 int main(int argc, char* argv[]){
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]){
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
             constexpr int offset = 4;
-            size_t NlcTemp = T.Links * (i+1 + offset) / (3 * sizeLinks + offset); //Care to not choose 0
+            size_t NlcTemp = T.Links * (i+1 + offset) / (sizeLinks + offset); //Care to not choose 0
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
@@ -396,7 +396,9 @@ mainPROFILE_FUNCTION();
     Log::debug("Links chosen");
 
     if(chosenLinksPop.Total < MUESTRA_MAX)
-        Log::error("MUESTRA_MAX bigger than the number of people in the chosen links.");
+        Log::error("MUESTRA_MAX bigger than the number of people in the chosen links: " + std::to_string(chosenLinksPop.Total) + " < " + std::to_string(MUESTRA_MAX));
+    else
+        Log::debug("MUESTRA_MAX smaller than the number of people in the chosen links: " + std::to_string(chosenLinksPop.Total) + " > " + std::to_string(MUESTRA_MAX));
     return chosenLinksPop;
 }
 

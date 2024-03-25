@@ -118,16 +118,16 @@ void iterations(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks,
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
 void countPopulationLinks(const MobMatrix& T, const std::vector<MobTrMatrix>& chosenLinks, std::vector<Result>& results);
 
-static int nIterations = 24 * 8; //24 * 8
-static double p = 1.0;
+static const int nIterations = 24 * 8; //24 * 8
+static const double p = 1.0;
 
-std::string name = "bogota"; //beta_c de bogota en p=1: 1/20.6942, 1/1.78102 para areas de ZATs
+static const std::string name = "bogota"; //beta_c de bogota en p=1: 1/20.6942, 1/1.78102 para areas de ZATs
 
 static const int MUESTRA_MAX = 20000;
 static const int STEPS = 10000;
 static const int THRESHOLD = 1000;
-static double beta = 4.0 / 1.78102;
-static int nPasos = 30;
+static const double beta = 4.0 / 1.78102;
+static const int nPasos = 30;
 
 std::mutex resultsMutex;
 
@@ -205,10 +205,10 @@ int main(){
           << infected_results[i].mean/nIterations << "\t"
           << time_results[i].mean/nIterations << "\t"
           //Std deviation
-          << 2 * sqrt((infected_results[i].mean2 - (infected_results[i].mean * infected_results[i].mean / nIterations))/nIterations) << "\t"
+          << 1.96 * sqrt((infected_results[i].mean2 - (infected_results[i].mean * infected_results[i].mean / nIterations))/nIterations) << "\t"
           //Std error
           //<< 2 * sqrt((results[i].mean2 - (results[i].mean * results[i].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
-          << 2 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
+          << 1.96 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
 
           std::cout << infected_results[i].mean2 << "\t" << infected_results[i].mean << "\t" << nIterations << std::endl;
           std::cout << time_results[i].mean2 << "\t" << time_results[i].mean << "\t" << nIterations << std::endl;
