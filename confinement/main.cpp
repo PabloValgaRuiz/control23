@@ -45,19 +45,19 @@ const static std::unordered_map<std::string, double> cityBeta{
     {"ma", 0.153499},
     {"los angeles", 0.0918512},
     {"miami", 0.168365},
+    {"austin", 1.0/4.45051},
     {"bogota", 1.0 / 1.78102}
 };
 
 std::string path = "../";
-std::string name = "bogota";
+std::string name = "miami";
 
 //static const double beta = 3.0 * cityBeta.at(name);
-static const double p = 1.0;
+static const double p = 1;
 static const int nPasos = 300;//300
 static const int nIterations = 24*1;
 
 std::mutex resultsMutex;
-
 
 
 int MainConfinement(int argc, char* argv[]){
@@ -86,8 +86,9 @@ int MainConfinement(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 0;
-            size_t NlcTemp = T.Links * (i+1 + offset) / (sizeLinks + offset); //Care to not choose 0
+            constexpr int offset = 3;
+            //                T.Links
+            size_t NlcTemp = (12500) * (i+1 + offset) / (sizeLinks + offset); //Care to not choose 0
                                                         //Boston: 2.8 * sizeLinks + offset
             //Choose the Nlc highest component links in the eigenvector
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
@@ -103,12 +104,12 @@ int MainConfinement(int argc, char* argv[]){
     Log::debug("Links chosen.");
 
     //__________________________________ITERATING_____________________________________
-    std::ofstream file(path + "out/attackRateMap/" + output + "beta_5.txt");
+    std::ofstream file(path + "out/attackRateMap/" + output + "_p_1,0nu_0,50_beta_3.txt");
     file << "beta" << "\t" << "population" << "\t" << "links" << "\t" << "attackRate" << "\t" << "error" << "\n";
 
     double beta0 = cityBeta.at(name);
     double beta_diff = beta0/4;
-    for(double beta = 5 * beta0; beta < 5.001 * beta0; beta += beta_diff){
+    for(double beta = 3 * beta0; beta < 3.01 * beta0; beta += beta_diff){
         
         attackRate.assign(attackRate.size(), Result({0,0}));
         
@@ -125,8 +126,9 @@ int MainConfinement(int argc, char* argv[]){
         for(int l = 0; l < vectorChosenLinks.size(); l++){
             file << beta / cityBeta.at(name) << "\t" << link_populations[l] << "\t" << vectorChosenLinks[l].Links << "\t" << attackRate[l].mean / nIterations << "\t"
                  << 1.96 * sqrt((attackRate[l].mean2 - attackRate[l].mean*attackRate[l].mean/nIterations)/(nIterations * (nIterations - 1)))
-                 << "\n";
+                 << std::endl;
         }
+
     }
     file.close();
     
@@ -164,7 +166,8 @@ int WriteChosenLinks(int argc, char* argv[]){
 }
 
 int main(int argc, char* argv[]){
-    return WriteChosenLinks(argc, argv);
+    return MainConfinement(argc, argv);
+    // return WriteChosenLinks(argc, argv);
 }
 
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<std::vector<Result>>& results,
@@ -194,24 +197,23 @@ void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks
 
 int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, MC_DistDiaNocheF& montecarlo, int MUESTRA, std::mt19937& generator){
 
-    std::vector<int> MCLabels(chosenLinks.Total);
+    std::vector<int> MCLabels(0); MCLabels.reserve(chosenLinks.Total);
 
 {
 mainPROFILE_SCOPE("Copying");
-    //Accounts for the number of people included in the reserve(vector MCLabels)
-    int statesIndex = 0;
-
     for(int i = 0; i < chosenLinks.N; i++){
         for(int j = 0; j < chosenLinks.vecinos[i]; j++){
             //Find the first person in the link in the Monte Carlo agent array
             int MCIndex = chosenLinks[i][j].cumulativePop;
 
             //Copy the adress of every person included in the reserve
-            for(int k = 0; k < chosenLinks[i][j].Pop; k++)
-                MCLabels[statesIndex + k] = MCIndex + k;
-
-            //Add the number of included people
-            statesIndex += chosenLinks[i][j].Pop;
+            for(int k = 0; k < chosenLinks[i][j].Pop; k++){
+                
+                if(montecarlo.getIsDisplaced()[MCIndex + k] == true){
+                    MCLabels.push_back(MCIndex + k);
+                }
+            }
+            // statesIndex += chosenLinks[i][j].Pop;
         }
     }
 }
@@ -342,7 +344,8 @@ mainPROFILE_FUNCTION();
 
     Log::debug("Links chosen");
 
-    if(chosenLinksPop.Total < MUESTRA_MAX)
+            //the ones that move so times p
+    if((chosenLinksPop.Total * p) < MUESTRA_MAX)
         Log::error("MUESTRA_MAX bigger than the number of people in the chosen links.");
     return chosenLinksPop;
 }

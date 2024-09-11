@@ -28,14 +28,14 @@ struct Result{
 };
 
 Sparse<double> readEigen(const MobMatrix& T, const std::string& name);
+Sparse<double> createNeffMatrix(const MobMatrix& T);
 Sparse<Link> chooseLinks(int NlinksChosen, const MobMatrix& T, const Sparse<double>& eigenVector);
 void countPopulationLinks(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& results);
 void iterations(const MobMatrix& T, const std::vector<Sparse<Link>>& chosenLinks, std::vector<Result>& infected_results, std::vector<Result>& time_results);
 int contarInfectadosChosen(const MobMatrix& T, const Sparse<Link>& chosenLinks, MC_DistDiaNocheF& montecarlo, int MUESTRA, std::mt19937& generator);
 std::vector<int> fisherYatesShuffle(int k, std::vector<int> range, std::mt19937& generator);
-std::vector<int> reservoirSampling(int k, int n, std::mt19937& generator);
 
-static constexpr int MUESTRA_MAX = 30000;
+static constexpr int MUESTRA_MAX = 20000;
 static constexpr int THRESHOLD = 1000;
 
 const static std::unordered_map<std::string, double> cityBeta{
@@ -47,14 +47,15 @@ const static std::unordered_map<std::string, double> cityBeta{
     {"ma", 0.153499},
     {"los angeles", 0.0918512},
     {"miami", 0.168365},
+    {"austin", 1.0/4.45051},
     {"bogota", 1.0 / 1.78102}
 };
 
-static const std::string name = "bogota";
-static const double beta = 4.0 * cityBeta.at(name);
-static const double p = 1.0;
-static const int nPasos = 30;//30 - 60
-static const int nIterations = 24*4;
+static const std::string name = "miami";
+static const double beta = 2.0 * cityBeta.at(name);
+static const double p = 1;
+static const int nPasos = 120;//30 - 60
+static const int nIterations = 24*4; //24 * 4
 std::mutex resultsMutex;
 
 int main(int argc, char* argv[]){
@@ -64,11 +65,12 @@ int main(int argc, char* argv[]){
     ThreadPool pool{24};
 
     std::string output = path + "out/" + name + "_" +   std::to_string(MUESTRA_MAX/1000) + "k_" + 
-                                                        std::to_string(nPasos) + "d_beta_4,0.txt";
+                                                        std::to_string(nPasos) + "d_p_1,0nu_1,00_beta_2,0.txt";
 
     MobMatrix T{path + "cities3/" + name + "/mobnetwork.txt", path + "cities3/" + name + "/Poparea.txt"};
     std::cout << T.Pob << std::endl;
     auto eigenVector = readEigen(T, name);
+    auto neffMatrix = createNeffMatrix(T);
 
     Log::debug("EigenVector read.");
 
@@ -84,9 +86,9 @@ int main(int argc, char* argv[]){
     std::vector<std::future<void>> futures;
     for(size_t i = 0; i < sizeLinks; ++i){
         futures.push_back(std::move(pool.enqueue([&, i]{
-            constexpr int offset = 4;
+            constexpr int offset = 1;
             size_t NlcTemp = T.Links * (i+1 + offset) / (sizeLinks + offset); //Care to not choose 0
-            //Choose the Nlc highest component links in the eigenvector
+            //Choose the Nlc highest component links in the eigenVector or the neffMatrix
             vectorChosenLinks[i] = chooseLinks(NlcTemp, T, eigenVector);
         })));
 	}
@@ -105,7 +107,7 @@ int main(int argc, char* argv[]){
 
     Log::info("Population counted.");
     //__________________________________ITERATING_____________________________________
-        
+    
     for(int l = 0; l < nIterations; l++){
         futures.push_back(std::move(pool.enqueue([&, l]{
 
@@ -116,8 +118,8 @@ int main(int argc, char* argv[]){
     for(auto& future : futures)
         future.wait();
 
-
     std::ofstream f(output);
+
     f << "population" << "\t" << "links" << "\t" << "tests" << "\t" << "detected" << "\t" << "time" << "\t" << "error" << "\t" << "time_error" << "\n";
 	for(int i = 0; i < infected_results.size(); i++){//iteracion sobre links
             //Cantidad de links: Copia de mas arriba, al elegir los links
@@ -131,7 +133,7 @@ int main(int argc, char* argv[]){
           //Std error
           //<< 2 * sqrt((results[i].mean2 - (results[i].mean * results[i].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
           
-          << 1.96 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
+          << 1.96 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << std::endl;
           
           std::cout << infected_results[i].mean2 << "\t" << infected_results[i].mean << "\t" << nIterations << std::endl;
           std::cout << time_results[i].mean2 << "\t" << time_results[i].mean << "\t" << nIterations << std::endl;
@@ -319,13 +321,11 @@ Sparse<double> readEigen(const MobMatrix& T, const std::string& name){
 mainPROFILE_FUNCTION();
 
     Sparse<double> eigenVector = T;
-
     std::ifstream fileEigen{path + "eigenvectors3/" + name + "_10.txt"};
 
     Log::debug("Eigenvector file opened.");
 
     int a, b; double c;
-
     for(int i = 0; i < T.N; i++){
         for(int j = 0; j < T.vecinos[i]; j++){
             while(fileEigen >> a >> b >> c){
@@ -336,61 +336,73 @@ mainPROFILE_FUNCTION();
             }
         }
     }
-
     Log::debug("Eigenvector read and created.");
-
     return eigenVector;
-
 }
 
-Sparse<Link> chooseLinks(int NlinksChosen, const MobMatrix& T, const Sparse<double>& eigenVector){
+Sparse<double> createNeffMatrix(const MobMatrix& T){
+    Sparse<double> neffMatrix = T;
+
+    std::vector<double> neff(T.N, 0.0);
+
+    for(int i = 0; i < T.N; i++)
+        for(int j = 0; j < T.vecinos[i]; j++)
+            neff[T.Mvecinos[i][j]] += T.Mpesos[i][j];
+
+    for(int i = 0; i < T.N; i++)
+        for(int j = 0; j < T.vecinos[i]; j++){
+            neffMatrix[i][j] = neff[T.Mvecinos[i][j]];
+        }
+
+    return neffMatrix;
+}
+
+struct Criteria{
+    int i;
+    int j;
+    double value;
+    int pop;
+    int cumPop;
+
+    bool operator<(const Criteria& other) const{
+        return value < other.value;
+    }
+};
+std::vector<Criteria> createCriteriaVector(const MobMatrix& T, const Sparse<double>& criteriaMatrix){
+    std::vector<Criteria> criteriaVector;
+    criteriaVector.reserve(T.Links);
+
+    int cumPop = 0;
+    for(int i = 0; i < T.N; i++){
+        for(int j = 0; j < T.vecinos[i]; j++){
+            criteriaVector.push_back(Criteria{i, T.Mvecinos[i][j], criteriaMatrix[i][j], static_cast<int>(T.Mpesos[i][j]), cumPop});
+            cumPop += (int)(T.Mpesos[i][j]);
+        }
+    }
+
+    return criteriaVector;
+}
+
+Sparse<Link> chooseLinks(int NlinksChosen, const MobMatrix& T, const Sparse<double>& criteriaMatrix){
 mainPROFILE_FUNCTION();
 
     if(NlinksChosen > T.Links) Log::error("More chosen links than there are in the network");
 
-    Sparse<Link> chosenLinksPop; chosenLinksPop.N = eigenVector.N;
+    Sparse<Link> chosenLinksPop; chosenLinksPop.N = criteriaMatrix.N;
     chosenLinksPop.vecinos.resize(T.N);
     chosenLinksPop.Mvecinos.resize(T.N);
     chosenLinksPop.Mpesos.resize(T.N);
 
-    auto eigenTemp = eigenVector;
-    int I, J; double prov;
+    auto criteriaVector = createCriteriaVector(T, criteriaMatrix);
+    std::sort(criteriaVector.begin(), criteriaVector.end(), [](const Criteria& a, const Criteria& b){return b.value < a.value;} /*GREATER THAN*/ );
+
     for(int k = 0; k < NlinksChosen; k++){
-
-        //Find maximum component
-        
-        I = J = prov = 0;
-        for(int i = 0; i < eigenTemp.N; i++){
-            for(int j = 0; j < eigenTemp.vecinos[i]; j++){
-                if(prov < eigenTemp[i][j]){
-                    prov = eigenTemp[i][j];
-                    I = i; J = j;
-                }
-            }
-        }
-        eigenTemp[I][J] = 0;
-
-        Log::debug("Found maximum component.");
-
-        int cumulativePop = 0; //Calcular la poblacion acumulada hasta cada nodo
-        for(int i = 0; i < T.N; i++){
-            for(int j = 0; j < T.vecinos[i]; j++){
-                if(i == I && j == J){
-                    goto outOfLoop;
-                }
-                cumulativePop += T.Mpesos[i][j];
-            }
-        }
-        outOfLoop:
-
-        Log::debug("Saved cumulative population.");
-
-        //Add it to the chosen links matrix
+        auto& criteria = criteriaVector[k];
         chosenLinksPop.Links++;
-        chosenLinksPop.vecinos[I]++;
-        chosenLinksPop.Mvecinos[I].push_back(T.Mvecinos[I][J]);
-        chosenLinksPop[I].push_back(Link{static_cast<int>(T.Mpesos[I][J]), cumulativePop});
-        chosenLinksPop.Total += static_cast<int>(T.Mpesos[I][J]); //Total chosen population
+        chosenLinksPop.vecinos[criteria.i]++;
+        chosenLinksPop.Mvecinos[criteria.i].push_back(criteria.j);
+        chosenLinksPop[criteria.i].push_back(Link{criteria.pop, criteria.cumPop});
+        chosenLinksPop.Total += criteria.pop;
     }
 
     Log::debug("Links chosen");

@@ -1,4 +1,5 @@
 #include <iostream>
+#include "networks.hpp"
 #include "MobMatrix.hpp"
 #include "MC_DistDiaNocheF.hpp"
 #include "ThreadPool.hpp"
@@ -16,97 +17,6 @@
 
 const std::string path = "../";
 
-struct Link{
-    //Number of population that the link contains
-    int Pop;
-    //Number of population that have come before this link among the ones selected
-    int cumulativePop;
-};
-struct Result{
-    double mean{0};
-    double mean2{0};
-
-    int population_link{0};
-};
-
-struct MobilityTransport;
-struct RhoMatrix{
-    size_t I{};
-    size_t J{};
-    double value{};
-    RhoMatrix(size_t i, size_t j, double val){
-        I = i;
-        J = j;
-        value = val;
-    }
-    bool operator<(const RhoMatrix& rho) const{
-        if((I < rho.I) || ((I == rho.I) && (J < rho.J)))
-            return true;
-        else return false;
-    }
-    bool operator<(const MobilityTransport& M) const;
-    //bool operator==(const MobilityTransportMatrix& M);
-};
-struct CriteriaPopMatrix{
-    size_t I{};
-    size_t J{};
-    double value{};
-    double population{};
-    CriteriaPopMatrix(RhoMatrix criteria_IJ, RhoMatrix n_IJ){
-        I = criteria_IJ.I;
-        J = criteria_IJ.J;
-        value = criteria_IJ.value;
-        population = n_IJ.value;
-        if(I != n_IJ.I || J != n_IJ.J) Log::error("The criteria and the population matrix don't match");
-    }
-};
-struct MobilityTransport{
-    size_t i{};
-    size_t j{};
-    size_t I{};
-    size_t J{};
-    size_t population{};
-    size_t cumulative{};
-    bool operator<(const MobilityTransport& M) const{
-
-        if (i < M.i) return true;
-        else if (i > M.i) return false;
-
-        else if (j < M.j) return true;
-        else if (j > M.j) return false;
-
-        else if (I < M.I) return true;
-        else if (I > M.I) return false;
-
-        else if (J < M.J) return true;
-        else if (J > M.J) return false;
-
-        else return false;
-
-    }
-    bool operator<(const RhoMatrix& rho) const{
-        if((I < rho.I) || ((I == rho.I) && (J < rho.J)))
-            return true;
-        else return false;
-    }
-    bool operator==(const MobilityTransport& M) const{
-        if((I == M.I) && (J == M.J) && (i == M.i) && (j == M.j)) return true;
-        else return false;
-    }
-};
-
-bool RhoMatrix::operator<(const MobilityTransport& M) const{
-    if((I < M.I) || ((I == M.I) && (J < M.J)))
-        return true;
-    else return false;
-}
-// bool RhoMatrix::operator==(const MobilityTransportMatrix& M){
-//     if((I == M.I) && (J == M.J)) return true;
-//     else return false;
-// }
-
-typedef MobilityTransport MobTr;
-typedef std::vector<MobTr> MobTrMatrix;
 
 Sparse<double> readEigen(const MobMatrix& T, const std::string& name);
 Sparse<double> readWeights(const MobMatrix& T, const std::string& name);
@@ -126,7 +36,7 @@ static const std::string name = "bogota"; //beta_c de bogota en p=1: 1/20.6942, 
 static const int MUESTRA_MAX = 20000;
 static const int STEPS = 10000;
 static const int THRESHOLD = 1000;
-static const double beta = 4.0 / 1.78102;
+static const double beta = 3.0 / 1.78102;
 static const int nPasos = 30;
 
 std::mutex resultsMutex;
@@ -135,7 +45,7 @@ int main(){
 
     ThreadPool pool{24};
 
-    std::string output = path + "out/" + name + "_transport_"+std::to_string(MUESTRA_MAX/1000)+"k_"+std::to_string(nPasos)+"d_beta_4,0.txt";
+    std::string output = path + "out/eigen_centrality/" + name + "_transport_"+std::to_string(MUESTRA_MAX/1000)+"k_"+std::to_string(nPasos)+"d_beta_3,0_nu_1,00.txt";
 
     MobMatrix T{path + "bogota/mobnetwork.txt", path + "bogota/Poparea.txt"};
 
@@ -148,8 +58,12 @@ int main(){
     std::vector<RhoMatrix> n_IJ; //USE FOR THE POPULATION CURVE
     std::vector<RhoMatrix> rho; //USE FOR THE TRANSPORT CURVE
     std::tie(n, n_IJ, rho) = orderLines(T, eigenVector, W);
+    auto transportHubPop_IJ = transportHubPopulation(n_IJ);
+    auto betweenness_centrality_IJ = betweennessCentrality(n_IJ);
+    auto eigen_centrality_IJ = eigenCentrality(n_IJ);
 
-    std::vector<RhoMatrix>& CRITERIA_IJ = rho; //SELECT CRITERIA HERE
+    std::vector<RhoMatrix>& CRITERIA_IJ = eigen_centrality_IJ; //SELECT CRITERIA HERE
+
                                         //Do this before sorting the criteria vector
     const std::vector<double> NlcVector = chooseNumberOfLinks(n_IJ, T, n, CRITERIA_IJ);
     const size_t sizeLinks = NlcVector.size();
@@ -208,7 +122,7 @@ int main(){
           << 1.96 * sqrt((infected_results[i].mean2 - (infected_results[i].mean * infected_results[i].mean / nIterations))/nIterations) << "\t"
           //Std error
           //<< 2 * sqrt((results[i].mean2 - (results[i].mean * results[i].mean / (nIterations)))/((nIterations) * ((nIterations)-1))) << "\n";
-          << 1.96 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << "\n";
+          << 1.96 * sqrt((time_results[i].mean2 - (time_results[i].mean * time_results[i].mean / nIterations))/nIterations) << std::endl;
 
           std::cout << infected_results[i].mean2 << "\t" << infected_results[i].mean << "\t" << nIterations << std::endl;
           std::cout << time_results[i].mean2 << "\t" << time_results[i].mean << "\t" << nIterations << std::endl;
@@ -305,7 +219,7 @@ std::vector<double> chooseNumberOfLinks(const std::vector<RhoMatrix>& n_IJ, cons
         const auto& link = CRITERIA_pop_IJ[i];
         if(link.I != link.J){ //If they go from I to I, they are not using public transport and cannot be tested
             totalPop += link.population;
-            if(totalPop >= MUESTRA_MAX){
+            if(totalPop >= MUESTRA_MAX + 1000){
                 NlcVector.push_back(i+1);
                 std::cout << i+1 << ", " << totalPop << std::endl;
                 break;
@@ -577,4 +491,3 @@ mainPROFILE_FUNCTION();
 
     return n_cut;
 }
-

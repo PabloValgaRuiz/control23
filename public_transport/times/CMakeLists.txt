@@ -13,7 +13,8 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(main
     main.cpp
     MC_Dist.cpp
-    MC_DistDiaNocheF.cpp)
+    MC_DistDiaNocheF.cpp
+    networks.cpp)
 
 include_directories(main PUBLIC
     ./

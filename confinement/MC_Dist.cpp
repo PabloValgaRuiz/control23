@@ -9,7 +9,7 @@ MC_Dist::MC_Dist(double _lambda, double _p, const MobMatrix& M)
 :lambda{_lambda}, p{_p}{
     PROFILE_FUNCTION();
     
-    Est.resize(M.Pob); Org.resize(M.Pob); Des.resize(M.Pob); Desplazamiento.resize(M.Pob);
+    Est.resize(M.Pob); Org.resize(M.Pob); Des.resize(M.Pob); Desplazamiento.resize(M.Pob); isDisplaced.resize(M.Pob);
     InfectadosDes.resize(M.N); InfectadosOrg.resize(M.N); probInf.resize(M.N); n_eff.resize(M.N);
     totalDesS.resize(M.N); totalDesE.resize(M.N); totalDesA.resize(M.N); totalDesP.resize(M.N); totalDesI.resize(M.N); totalDesD.resize(M.N); totalDesR.resize(M.N);
     totalOrgS.resize(M.N); totalOrgE.resize(M.N); totalOrgA.resize(M.N); totalOrgP.resize(M.N); totalOrgI.resize(M.N); totalOrgD.resize(M.N); totalOrgR.resize(M.N);
@@ -162,10 +162,14 @@ void MC_Dist::desplaza(){
     std::mt19937 mt(rd());
     std::uniform_real_distribution<double> dist(0.0, 1.0);
     for(int k = 0; k < Des.size(); k++){
-        if (dist(mt) < p)		                //SI se desplaza
+        if (dist(mt) < p){		                //SI se desplaza
             Desplazamiento[k] = Des[k];
-        else									//NO se desplaza
+            isDisplaced[k] = true;
+        }
+        else{									//NO se desplaza
             Desplazamiento[k] = Org[k];
+            isDisplaced[k] = false;
+        }
     }
 }
 

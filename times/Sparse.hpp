@@ -17,6 +17,16 @@ public:
 
     Sparse(){}
 
+    Sparse(int N){
+        this->N = N;
+        vecinos.resize(N);
+        vecinosT.resize(N);
+        Mvecinos.resize(N);
+        MvecinosT.resize(N);
+        Mpesos.resize(N);
+        MpesosT.resize(N);
+    }
+
     Sparse(const Sparse& T){
         N = T.N;
         Links = T.Links;
@@ -29,6 +39,7 @@ public:
         MpesosT = T.MpesosT;
     }
 
+
     Sparse(const MobMatrix& T){
         N = T.N;
         Links = T.Links;
@@ -37,13 +48,8 @@ public:
         vecinosT = T.vecinosT;
         Mvecinos = T.Mvecinos;
         MvecinosT = T.MvecinosT;
-
-        Mpesos.resize(T.N);
-        MpesosT.resize(T.N);
-        for(int i = 0; i < T.N; i++){
-            Mpesos[i].resize(T.vecinos[i]);
-            MpesosT[i].resize(T.vecinosT[i]);
-        }
+        Mpesos = T.Mpesos;
+        MpesosT = T.MpesosT;
     }
 
     std::vector<Type>& operator[](int i){

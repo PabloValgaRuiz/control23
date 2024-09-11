@@ -30,6 +30,7 @@ public:
     const std::vector<int>& getDesplazamiento() const {return Desplazamiento;}
     const std::vector<int>& getInfectadosDes() const {return InfectadosDes;}
     const std::vector<int>& getInfectadosOrg() const {return InfectadosOrg;}
+    const std::vector<bool>& getIsDisplaced() const {return isDisplaced;}
     const std::vector<double>& getProbInf() const {return probInf;}
     double getLambda0() const {return lambda0;}
 
@@ -57,10 +58,11 @@ protected:
     double lambda;  //Probabilidad de infeccion por contacto
     double lambda0, mu = 0.2;
     double lambdaP = 0.07, lambdaI = 0.07, lambdaA = 0.035;
-    double nu = 1; //   1.0/2.6
+    double nu = 0.50; //   1.0/2.6
     double alpha = 1.0/2.6, delta = 1.0/3.0, gamma = 1.0/14.0, muI = 1.0/4.2, muA = 1.0/6.8, x = 0.35;
     double p;		//Probabilidad de desplazamiento
     std::vector<int> Org, Des, Desplazamiento, InfectadosDes, InfectadosOrg, n_eff;
+    std::vector<bool> isDisplaced;
     std::vector<int> totalDesS, totalDesE, totalDesA, totalDesP, totalDesI, totalDesD, totalDesR;
     std::vector<int> totalOrgS, totalOrgE, totalOrgA, totalOrgP, totalOrgI, totalOrgD, totalOrgR;
     std::vector<Estado> Est;
