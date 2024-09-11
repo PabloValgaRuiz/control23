@@ -4,3 +4,6 @@ build_windows/
 geo/
 .vscode
 zcta.parquet
+__pycache__
+.conda
+.vscode
